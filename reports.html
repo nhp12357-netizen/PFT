@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Reports - Personal Finance Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #1976D2;
+      --success: #4CAF50;
+      --warning: #FF9800;
+      --error: #F44336;
+      --background: #F5F5F5;
+      --surface: #FFFFFF;
+      --text-primary: #212121;
+      --text-secondary: #757575;
+      --divider: #E0E0E0;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: var(--background);
+      color: var(--text-primary);
+      padding: 16px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: var(--surface);
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    /* Header */
+    .header {
+      background: var(--primary);
+      color: white;
+      padding: 20px;
+      text-align: center;
+      font-size: 24px;
+      font-weight: 500;
+    }
+
+    /* Navigation */
+    .nav {
+      display: flex;
+      background: #F8F9FA;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--divider);
+    }
+    .nav-item {
+      padding: 16px 20px;
+      text-decoration: none;
+      color: var(--text-secondary);
+      font-weight: 500;
+      position: relative;
+    }
+    .nav-item.active {
+      color: var(--primary);
+    }
+    .nav-item.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 20px;
+      right: 20px;
+      height: 3px;
+      background: var(--primary);
+      border-radius: 3px 3px 0 0;
+    }
+
+    /* Page Header */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--divider);
+    }
+    .page-title {
+      font-size: 20px;
+      font-weight: 500;
+    }
+    .month-nav {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .nav-btn {
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--divider);
+      background: white;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .nav-btn:hover {
+      background: #F5F5F5;
+    }
+    .export-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-weight: 500;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .export-btn:hover {
+      background: #1565C0;
+    }
+
+    /* Reports Grid */
+    .reports-grid {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 24px;
+      padding: 24px;
+    }
+
+    /* Spending by Category */
+    .spending-card {
+      background: var(--surface);
+      border: 1px solid var(--divider);
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .card-header {
+      font-weight: 500;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+    }
+    .category-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .category-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .category-color {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+    }
+    .color-rent { background: #2196F3; }
+    .color-food { background: #4CAF50; }
+    .color-transport { background: #FF9800; }
+    .color-shopping { background: #F44336; }
+    .color-other { background: #9C27B0; }
+    .category-name {
+      flex: 1;
+      font-size: 14px;
+    }
+    .category-percentage {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    /* Monthly Trends */
+    .trends-card {
+      background: var(--surface);
+      border: 1px solid var(--divider);
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      display: flex;
+      flex-direction: column;
+    }
+    .chart-placeholder {
+      flex: 1;
+      background: #FAFAFA;
+      border: 2px dashed #E0E0E0;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      font-style: italic;
+      min-height: 200px;
+      margin-bottom: 16px;
+    }
+    .chart-footer {
+      text-align: center;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    /* Anomaly Summary */
+    .anomaly-card {
+      background: var(--surface);
+      border: 1px solid var(--divider);
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      grid-column: span 2;
+    }
+    .anomaly-list {
+      margin: 12px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .anomaly-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .anomaly-icon {
+      color: var(--error);
+      font-weight: bold;
+      margin-top: 2px;
+    }
+    .review-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-weight: 500;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 16px;
+      align-self: flex-start;
+    }
+    .review-btn:hover {
+      background: #1565C0;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .reports-grid {
+        grid-template-columns: 1fr;
+      }
+      .anomaly-card {
+        grid-column: span 1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">PERSONAL FINANCE TRACKER</div>
+
+    <!-- Navigation -->
+    <div class="nav">
+      <a href="#" class="nav-item">Dashboard</a>
+      <a href="#" class="nav-item">Transactions</a>
+      <a href="#" class="nav-item">Accounts</a>
+      <a href="#" class="nav-item">Budget</a>
+      <a href="#" class="nav-item active">Reports</a>
+    </div>
+
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="page-title">REPORTS</div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <div class="month-nav">
+          <span>Oct 2024</span>
+          <button class="nav-btn">⟨</button>
+          <button class="nav-btn">⟩</button>
+          <button class="nav-btn">⟩⟩</button>
+        </div>
+        <button class="export-btn">Export</button>
+      </div>
+    </div>
+
+    <!-- Reports Grid -->
+    <div class="reports-grid">
+      <!-- Spending by Category -->
+      <div class="spending-card">
+        <div class="card-header">SPENDING BY CATEGORY</div>
+        <div class="category-list">
+          <div class="category-item">
+            <div class="category-color color-rent"></div>
+            <div class="category-name">Rent</div>
+            <div class="category-percentage">(40%)</div>
+          </div>
+          <div class="category-item">
+            <div class="category-color color-food"></div>
+            <div class="category-name">Food</div>
+            <div class="category-percentage">(25%)</div>
+          </div>
+          <div class="category-item">
+            <div class="category-color color-transport"></div>
+            <div class="category-name">Transport</div>
+            <div class="category-percentage">(15%)</div>
+          </div>
+          <div class="category-item">
+            <div class="category-color color-shopping"></div>
+            <div class="category-name">Shopping</div>
+            <div class="category-percentage">(12%)</div>
+          </div>
+          <div class="category-item">
+            <div class="category-color color-other"></div>
+            <div class="category-name">Other</div>
+            <div class="category-percentage">(8%)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monthly Trends -->
+      <div class="trends-card">
+        <div class="card-header">MONTHLY TRENDS</div>
+        <div class="chart-placeholder">Chart Area (e.g., using Chart.js)</div>
+        <div class="chart-footer">Last 6 Months Comparison</div>
+      </div>
+
+      <!-- Anomaly Summary -->
+      <div class="anomaly-card">
+        <div class="card-header">ANOMALY SUMMARY</div>
+        <div class="anomaly-info">This month: 2 anomalies detected</div>
+        <div class="anomaly-list">
+          <div class="anomaly-item">
+            <span class="anomaly-icon">•</span>
+            <span>Large Shopping purchase ($350)</span>
+          </div>
+          <div class="anomaly-item">
+            <span class="anomaly-icon">•</span>
+            <span>Unusual Food & Dining ($150)</span>
+          </div>
+        </div>
+        <button class="review-btn">Review Anomalies</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
