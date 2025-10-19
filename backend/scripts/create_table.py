@@ -1,7 +1,7 @@
 import sqlite3
 import os
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) 
 DB_PATH = os.path.join(BASE_DIR, "finance.db")
 
 schema = """
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS categories (
 
 CREATE TABLE IF NOT EXISTS accounts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
+    name TEXT NOT NULL UNIQUE,
     type TEXT NOT NULL CHECK (type IN ('CHECKING', 'SAVINGS', 'CREDIT_CARD')),
     initial_balance REAL NOT NULL DEFAULT 0.0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     account_id INTEGER NOT NULL,
     category_id INTEGER NOT NULL,
     transfer_id TEXT,
-    is_anomaly BOOLEAN DEFAULT FALSE,
+    is_anomaly BOOLEAN DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE RESTRICT,
     FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE RESTRICT
@@ -42,18 +42,16 @@ CREATE TABLE IF NOT EXISTS budgets (
     category_id INTEGER NOT NULL,
     month INTEGER NOT NULL CHECK (month >= 1 AND month <= 12),
     year INTEGER NOT NULL,
-    amount REAL NOT NULL,
+    limit_amount REAL NOT NULL,
+    spent REAL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(category_id, month, year),
     FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE CASCADE
 );
 """
 
-
-conn = sqlite3.connect(DB_PATH)
-cursor = conn.cursor()
-cursor.executescript(schema)
-conn.commit()
-conn.close()
+with sqlite3.connect(DB_PATH) as conn:
+    cursor = conn.cursor()
+    cursor.executescript(schema)
 
 print(f"Database created at: {DB_PATH}")
