@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 import sqlite3
 import os
@@ -30,6 +30,49 @@ def get_accounts():
     conn.close()
     accounts = [dict(row) for row in rows]
     return jsonify(accounts)
+
+
+@app.route("/api/transactions/add", methods=["POST"])
+def add_transaction():
+    data = request.json
+    description = data.get("description")
+    amount = data.get("amount")
+    date = data.get("date")
+    transaction_type = data.get("transaction_type")  # INCOME, EXPENSE, TRANSFER
+    account_name = data.get("account")
+    category_name = data.get("category")
+    notes = data.get("notes", "")
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # get account id
+    cursor.execute("SELECT id FROM accounts WHERE name = ?", (account_name,))
+    account_row = cursor.fetchone()
+    if not account_row:
+        conn.close()
+        return jsonify({"error": "Account not found"}), 400
+    account_id = account_row["id"]
+
+    # get category id
+    cursor.execute("SELECT id FROM categories WHERE name = ?", (category_name,))
+    category_row = cursor.fetchone()
+    if not category_row:
+        conn.close()
+        return jsonify({"error": "Category not found"}), 400
+    category_id = category_row["id"]
+
+    cursor.execute("""
+        INSERT INTO transactions
+        (description, amount, date, transaction_type, account_id, category_id, is_anomaly, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    """, (description, amount, date, transaction_type, account_id, category_id, False))
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({"message": "Transaction added successfully"})
+
 
 @app.route("/api/transactions", methods=["GET"])
 def get_transactions():

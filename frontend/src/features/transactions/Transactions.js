@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { fetchTransactions } from "../../services/transactionApi";
 import "./Transactions.css"; // your CSS copied from HTML
+import { useNavigate } from "react-router-dom";
 
 const Transactions = () => {
   const [transactions, setTransactions] = useState([]);
+  
   const [error, setError] = useState(null); // define error state
   const [loading, setLoading] = useState(true); // loading state
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchTransactions()
@@ -37,7 +40,7 @@ const Transactions = () => {
 
       <div className="page-header">
         <div className="page-title">TRANSACTIONS</div>
-        <button className="add-btn">Add Transaction</button>
+        <button className="add-btn" onClick={() => navigate("/transactions/add")}>Add Transaction</button>
       </div>
 
       <div className="filters">{/* Filters remain static */}</div>
