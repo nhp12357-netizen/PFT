@@ -1,7 +1,6 @@
 import sqlite3
 import os
 
-# Get absolute path to backend directory (1 level up from this script)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "finance.db")
 
@@ -50,7 +49,7 @@ CREATE TABLE IF NOT EXISTS budgets (
 );
 """
 
-# ✅ Save finance.db in backend/ folder
+
 conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 cursor.executescript(schema)
