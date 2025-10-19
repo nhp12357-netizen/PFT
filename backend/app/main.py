@@ -14,6 +14,24 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+@app.route("/api/transactions", methods=["GET"])
+def get_transactions():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT t.id, t.date, t.description, c.name AS category, a.name AS account,
+               t.amount, t.is_anomaly
+        FROM transactions t
+        JOIN categories c ON t.category_id = c.id
+        JOIN accounts a ON t.account_id = a.id
+        ORDER BY t.date DESC
+        LIMIT 100
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    transactions = [dict(row) for row in rows]
+    return jsonify(transactions)
+
 @app.route("/api/dashboard", methods=["GET"])
 def dashboard():
     conn = get_db_connection()

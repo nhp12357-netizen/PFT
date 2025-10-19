@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchDashboardData } from "../../services/api";
+import { fetchDashboardData } from "../../services/dashboardApi";
 import "./Dashboard.css"; // make sure this file exists with your CSS
 
 const Dashboard = () => {
