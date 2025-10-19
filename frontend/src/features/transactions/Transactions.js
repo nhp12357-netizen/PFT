@@ -28,11 +28,11 @@ const Transactions = () => {
       <div className="header">PERSONAL FINANCE TRACKER</div>
 
       <div className="nav">
-        <a href="#" className="nav-item">Dashboard</a>
-        <a href="#" className="nav-item active">Transactions</a>
-        <a href="#" className="nav-item">Accounts</a>
-        <a href="#" className="nav-item">Budget</a>
-        <a href="#" className="nav-item">Reports</a>
+        <a href="/" className="nav-item">Dashboard</a>
+        <a href="/transactions" className="nav-item active">Transactions</a>
+        <a href="/accounts" className="nav-item">Accounts</a>
+        <a href="/budget" className="nav-item">Budget</a>
+        <a href="/reports" className="nav-item">Reports</a>
       </div>
 
       <div className="page-header">

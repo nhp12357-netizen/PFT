@@ -14,6 +14,23 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+@app.route("/api/accounts", methods=["GET"])
+def get_accounts():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, name, type, initial_balance,
+               COALESCE((SELECT SUM(amount)
+                         FROM transactions t
+                         WHERE t.account_id = a.id), 0) AS current_balance
+        FROM accounts a
+    """)
+    
+    rows = cursor.fetchall()
+    conn.close()
+    accounts = [dict(row) for row in rows]
+    return jsonify(accounts)
+
 @app.route("/api/transactions", methods=["GET"])
 def get_transactions():
     conn = get_db_connection()
