@@ -49,6 +49,8 @@ with sqlite3.connect(DB_PATH) as conn:
         ("Monthly Rent", -1000, "2025-10-15", "EXPENSE", "Rent", 1)
     ]
 
+    
+
     for desc, amount, date, t_type, category_name, is_anomaly in transactions_list:
         category_id = category_map[category_name]
         cursor.execute("""
