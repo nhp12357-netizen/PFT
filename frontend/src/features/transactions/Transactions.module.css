@@ -1,0 +1,72 @@
+.container {
+  padding: 20px;
+  background: #fafafa;
+  border-radius: 12px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.addBtn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.filters {
+  margin: 15px 0;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.table th,
+.table td {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.income {
+  color: green;
+}
+
+.expense {
+  color: red;
+}
+
+.formContainer {
+  max-width: 400px;
+  margin: 40px auto;
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+}
+
+.formContainer input,
+.formContainer select {
+  display: block;
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 10px;
+}
+
+.cancelBtn {
+  background: gray;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-top: 5px;
+}
