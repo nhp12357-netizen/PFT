@@ -12,6 +12,8 @@ function Transactions() {
   const [categories, setCategories] = useState([]);
   const [selectedAccount, setSelectedAccount] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetchAccounts();
@@ -26,28 +28,57 @@ function Transactions() {
   };
 
   const fetchCategories = async () => {
-    // assuming you have a categories table
     const res = await fetch("http://localhost:5000/api/categories");
     const data = await res.json();
     setCategories(data);
   };
 
   const fetchTransactions = async () => {
-    let url = "http://localhost:5000/api/transactions";
-    const params = new URLSearchParams();
-    if (accountId) params.append("accountId", accountId);
-    if (selectedAccount !== "all") params.append("accountId", selectedAccount);
-    if (selectedCategory !== "all") params.append("categoryId", selectedCategory);
-    if (search.trim()) params.append("search", search);
-    url += `?${params.toString()}`;
+    setLoading(true);
+    setError("");
+    try {
+      let url = "http://localhost:5000/api/transactions";
+      const params = new URLSearchParams();
 
-    const res = await fetch(url);
-    const data = await res.json();
-    setTransactions(data);
+      if (accountId && selectedAccount === "all") {
+        params.append("accountId", accountId);
+      } else if (selectedAccount !== "all") {
+        params.append("accountId", selectedAccount);
+      }
+
+      if (selectedCategory !== "all") {
+        params.append("categoryId", selectedCategory);
+      }
+
+      if (search.trim()) {
+        params.append("search", search);
+      }
+
+      url += `?${params.toString()}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      setTransactions(data);
+    } catch (err) {
+      setError("Failed to fetch transactions");
+    }
+    setLoading(false);
   };
 
   return (
-    <div className={styles.container}>
+    <div className={styles.pageContainer}>
+      {/* Personal Finance Tracker Header */}
+      <div className="header">PERSONAL FINANCE TRACKER</div>
+
+      {/* Navigation Bar */}
+      <div className="nav">
+        <a href="/" className="nav-item">Dashboard</a>
+        <a href="/transactions" className="nav-item active">Transactions</a>
+        <a href="/accounts" className="nav-item">Accounts</a>
+        <a href="/budget" className="nav-item">Budget</a>
+        <a href="/reports" className="nav-item">Reports</a>
+      </div>
+
+      {/* Transactions Page Header */}
       <div className={styles.header}>
         <h2>Transactions</h2>
         <button
@@ -58,6 +89,7 @@ function Transactions() {
         </button>
       </div>
 
+      {/* Filters */}
       <div className={styles.filters}>
         <select
           value={selectedAccount}
@@ -92,42 +124,49 @@ function Transactions() {
         <button onClick={fetchTransactions}>🔍 Search</button>
       </div>
 
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Description</th>
-            <th>Category</th>
-            <th>Account</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {transactions.length > 0 ? (
-            transactions.map((tx) => (
-              <tr key={tx.id}>
-                <td>{tx.date}</td>
-                <td>{tx.description}</td>
-                <td>{tx.category_name || "-"}</td>
-                <td>{tx.account_name || "-"}</td>
-                <td
-                  className={
-                    tx.type === "income" ? styles.income : styles.expense
-                  }
-                >
-                  {tx.type === "income" ? "+" : "-"}${tx.amount.toFixed(2)}
+      {/* Transactions Table */}
+      {loading ? (
+        <p style={{ textAlign: "center" }}>Loading transactions...</p>
+      ) : error ? (
+        <p style={{ textAlign: "center", color: "red" }}>{error}</p>
+      ) : (
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Description</th>
+              <th>Category</th>
+              <th>Account</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {transactions.length > 0 ? (
+              transactions.map((tx) => (
+                <tr key={tx.id}>
+                  <td>{tx.date}</td>
+                  <td>{tx.description}</td>
+                  <td>{tx.category_name || "-"}</td>
+                  <td>{tx.account_name || "-"}</td>
+                  <td
+                    className={
+                      tx.type === "income" ? styles.income : styles.expense
+                    }
+                  >
+                    {tx.type === "income" ? "+" : "-"}${tx.amount.toFixed(2)}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="5" style={{ textAlign: "center" }}>
+                  No transactions found.
                 </td>
               </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="5" style={{ textAlign: "center" }}>
-                No transactions found.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+            )}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

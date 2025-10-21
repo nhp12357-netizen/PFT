@@ -88,9 +88,10 @@ const Accounts = () => {
     }
   };
 
-  const viewTransactions = (account) => {
-    navigate(`/transactions/${account.id}`);
-  };
+ const viewTransactions = (account) => {
+  navigate(`/transactions?accountId=${account.id}`);
+};
+
 
   if (error) return <p style={{ color: "red", padding: "20px" }}>{error}</p>;
   if (loading) return <p style={{ padding: "20px" }}>Loading...</p>;
