@@ -66,10 +66,9 @@ function Transactions() {
 
   return (
     <div className={styles.pageContainer}>
-      {/* Personal Finance Tracker Header */}
+    
       <div className="header">PERSONAL FINANCE TRACKER</div>
 
-      {/* Navigation Bar */}
       <div className="nav">
         <a href="/" className="nav-item">Dashboard</a>
         <a href="/transactions" className="nav-item active">Transactions</a>
@@ -78,7 +77,7 @@ function Transactions() {
         <a href="/reports" className="nav-item">Reports</a>
       </div>
 
-      {/* Transactions Page Header */}
+      
       <div className={styles.header}>
         <h2>Transactions</h2>
         <button
@@ -89,7 +88,7 @@ function Transactions() {
         </button>
       </div>
 
-      {/* Filters */}
+     
       <div className={styles.filters}>
         <select
           value={selectedAccount}
@@ -124,7 +123,7 @@ function Transactions() {
         <button onClick={fetchTransactions}>🔍 Search</button>
       </div>
 
-      {/* Transactions Table */}
+    
       {loading ? (
         <p style={{ textAlign: "center" }}>Loading transactions...</p>
       ) : error ? (
@@ -144,18 +143,19 @@ function Transactions() {
             {transactions.length > 0 ? (
               transactions.map((tx) => (
                 <tr key={tx.id}>
-                  <td>{tx.date}</td>
-                  <td>{tx.description}</td>
-                  <td>{tx.category_name || "-"}</td>
-                  <td>{tx.account_name || "-"}</td>
-                  <td
-                    className={
-                      tx.type === "income" ? styles.income : styles.expense
-                    }
-                  >
-                    {tx.type === "income" ? "+" : "-"}${tx.amount.toFixed(2)}
-                  </td>
-                </tr>
+  <td>{tx.date}</td>
+  <td>{tx.description}</td>
+  <td>{tx.category || "-"}</td>
+  <td>{tx.account_name || "-"}</td>
+  <td
+    className={
+      tx.transaction_type === "INCOME" ? styles.income : styles.expense
+    }
+  >
+    {tx.transaction_type === "INCOME" ? "+" : "-"}${tx.amount.toFixed(2)}
+  </td>
+</tr>
+
               ))
             ) : (
               <tr>
