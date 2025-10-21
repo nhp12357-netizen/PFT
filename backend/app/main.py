@@ -1,45 +1,109 @@
 from flask import Flask, jsonify, request
-
 from flask_cors import CORS
 import sqlite3
 import os
 
 app = Flask(__name__)
-
 CORS(app)
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  
+# === DATABASE CONFIGURATION ===
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "finance.db")
+print("📁 Using database file:", DB_PATH)
 
+
+# === HELPER FUNCTION ===
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+# === INITIALIZE DATABASE ===
+def init_db():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.executescript("""
+    CREATE TABLE IF NOT EXISTS accounts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        type TEXT CHECK(type IN ('CHECKING','SAVINGS','CREDIT_CARD')),
+        initial_balance REAL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT,
+        description TEXT,
+        amount REAL,
+        account_id INTEGER,
+        category_id INTEGER,
+        transaction_type TEXT CHECK(transaction_type IN ('INCOME','EXPENSE','TRANSFER')),
+        is_anomaly INTEGER DEFAULT 0,
+        FOREIGN KEY (account_id) REFERENCES accounts(id),
+        FOREIGN KEY (category_id) REFERENCES categories(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS budgets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category_id INTEGER,
+        limit_amount REAL,
+        month TEXT,
+        FOREIGN KEY (category_id) REFERENCES categories(id)
+    );
+    """)
+    conn.commit()
+    conn.close()
+    print("✅ Database initialized successfully")
+
+
+# === ADD DEFAULT CATEGORIES ===
+def add_default_categories():
+    categories = [
+        'Entertainment', 'Food & Dining', 'Groceries', 'Healthcare',
+        'Investment', 'Other Income', 'Rent', 'Salary', 'Shopping', 'Transportation'
+    ]
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    existing = cursor.execute("SELECT COUNT(*) FROM categories").fetchone()[0]
+    if existing == 0:
+        for cat in categories:
+            cursor.execute("INSERT INTO categories (name) VALUES (?)", (cat,))
+        conn.commit()
+        print("✅ Default categories added")
+    else:
+        print("ℹ️ Categories already exist")
+    conn.close()
+
+
+# === ROUTES ===
+
+# Add new account
 @app.route("/api/accounts", methods=["POST"])
 def add_account():
     data = request.get_json()
-
-    # Extract values from request
     name = data.get("name")
     acc_type = data.get("type")
     initial_balance = data.get("initial_balance", 0.0)
 
-    # Validate required fields
     if not name or not acc_type:
         return jsonify({"error": "Name and type are required"}), 400
 
-    # Allowed account types (must match your SQLite CHECK constraint)
     ALLOWED_TYPES = ('CHECKING', 'SAVINGS', 'CREDIT_CARD')
     if acc_type not in ALLOWED_TYPES:
         return jsonify({"error": f"Invalid account type. Must be one of {ALLOWED_TYPES}"}), 400
 
-    # Validate initial balance is a number
     try:
         initial_balance = float(initial_balance)
     except ValueError:
         return jsonify({"error": "Initial balance must be a number"}), 400
 
-    # Insert into database
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -54,13 +118,10 @@ def add_account():
     finally:
         conn.close()
 
-    return jsonify({
-        "message": "Account added successfully",
-        "id": new_id
-    }), 201
+    return jsonify({"message": "Account added successfully", "id": new_id}), 201
 
 
-
+# Get all accounts
 @app.route("/api/accounts", methods=["GET"])
 def get_accounts():
     conn = get_db_connection()
@@ -75,20 +136,19 @@ def get_accounts():
                   FROM transactions t
                   WHERE t.account_id = a.id), 0) AS current_balance
     FROM accounts a
-""")
-
-    
+    """)
     rows = cursor.fetchall()
     conn.close()
     accounts = [dict(row) for row in rows]
     return jsonify(accounts)
 
+
+# Account by ID (GET, PUT, DELETE)
 @app.route("/api/accounts/<int:id>", methods=["GET", "DELETE", "PUT"])
 def account_by_id(id):
     conn = get_db_connection()
-    
-    # Fetch the account
     account = conn.execute("SELECT * FROM accounts WHERE id = ?", (id,)).fetchone()
+
     if account is None:
         conn.close()
         return jsonify({"error": "Account not found"}), 404
@@ -109,13 +169,11 @@ def account_by_id(id):
         acc_type = data.get("type", account["type"])
         initial_balance = data.get("initial_balance", account["initial_balance"])
 
-        # Optional validation for account type
         ALLOWED_TYPES = ('CHECKING', 'SAVINGS', 'CREDIT_CARD')
         if acc_type not in ALLOWED_TYPES:
             conn.close()
             return jsonify({"error": f"Invalid account type. Must be one of {ALLOWED_TYPES}"}), 400
 
-        #upadte on db
         conn.execute("""
             UPDATE accounts
             SET name = ?, type = ?, initial_balance = ?
@@ -124,28 +182,21 @@ def account_by_id(id):
         conn.commit()
         conn.close()
         return jsonify({"message": "Account updated successfully"})
-   
-#categories api
 
+
+# Get categories
 @app.route("/api/categories", methods=["GET"])
 def get_categories():
     conn = get_db_connection()
     rows = conn.execute("SELECT id, name FROM categories").fetchall()
     conn.close()
-    categories = [dict(row) for row in rows]
-    return jsonify(categories)
+    return jsonify([dict(row) for row in rows])
 
 
-
-# transcation api
-
-from flask import request, jsonify
-
-# get is for fetch all the transcations  account
+# Get all transactions
 @app.route("/api/transactions", methods=["GET"])
 def get_transactions():
-    account_id = request.args.get("accountId")  # Optional query param
-
+    account_id = request.args.get("accountId")
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -170,33 +221,27 @@ def get_transactions():
         params.append(account_id)
 
     query += " ORDER BY t.date DESC"
-
     cursor.execute(query, params)
     rows = cursor.fetchall()
     conn.close()
-
-    transactions = [dict(row) for row in rows]
-    return jsonify(transactions)
+    return jsonify([dict(row) for row in rows])
 
 
-# add a new transaction
+# Add a transaction
 @app.route("/api/transactions", methods=["POST"])
 def add_transaction():
     data = request.get_json()
-
     date = data.get("date")
     description = data.get("description")
     amount = data.get("amount")
     account_id = data.get("account_id")
     category_id = data.get("category_id")
-    transaction_type = data.get("transaction_type")  # 'INCOME', 'EXPENSE', 'TRANSFER'
-    target_account_id = data.get("target_account_id")  # For transfers
+    transaction_type = data.get("transaction_type")
+    target_account_id = data.get("target_account_id")
 
-    # Validate required fields
     if not date or not description or not amount or not account_id or not category_id:
         return jsonify({"error": "All fields except target_account_id are required"}), 400
 
-    # Validate amount
     try:
         amount = float(amount)
         if amount <= 0:
@@ -208,19 +253,16 @@ def add_transaction():
     cursor = conn.cursor()
 
     try:
-        # Handle transfer
         if transaction_type == "TRANSFER":
             if not target_account_id:
                 return jsonify({"error": "Target account required for transfer"}), 400
 
-            # Expense from source account
             cursor.execute("""
                 INSERT INTO transactions (date, description, amount, account_id, category_id, transaction_type)
                 VALUES (?, ?, ?, ?, ?, 'EXPENSE')
             """, (date, f"Transfer to account {target_account_id}", amount, account_id, category_id))
             expense_id = cursor.lastrowid
 
-            # Income to target account
             cursor.execute("""
                 INSERT INTO transactions (date, description, amount, account_id, category_id, transaction_type)
                 VALUES (?, ?, ?, ?, ?, 'INCOME')
@@ -228,13 +270,8 @@ def add_transaction():
             income_id = cursor.lastrowid
 
             conn.commit()
-            return jsonify({
-                "message": "Transfer recorded successfully",
-                "expense_id": expense_id,
-                "income_id": income_id
-            }), 201
+            return jsonify({"message": "Transfer recorded successfully", "expense_id": expense_id, "income_id": income_id}), 201
 
-        # Regular income/expense
         cursor.execute("""
             INSERT INTO transactions (date, description, amount, account_id, category_id, transaction_type)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -250,16 +287,13 @@ def add_transaction():
     return jsonify({"message": "Transaction added successfully", "id": new_id}), 201
 
 
-
+# Dashboard API
 @app.route("/api/dashboard", methods=["GET"])
 def dashboard():
     conn = get_db_connection()
-
-    # Total balance
     total_balance_row = conn.execute("SELECT SUM(initial_balance) AS total FROM accounts").fetchone()
     total_balance = total_balance_row["total"] or 0
 
-    # Monthly income/expense
     monthly_income_row = conn.execute("""
         SELECT SUM(amount) AS total FROM transactions
         WHERE transaction_type='INCOME' AND strftime('%m', date) = strftime('%m', 'now')
@@ -271,10 +305,8 @@ def dashboard():
 
     monthly_income = monthly_income_row["total"] or 0
     monthly_expense = abs(monthly_expense_row["total"] or 0)
-
     savings_rate = round((monthly_income - monthly_expense) / monthly_income * 100, 1) if monthly_income else 0
 
-    # Recent transactions (latest 5)
     recent_transactions = conn.execute("""
         SELECT t.description AS name, t.amount, c.name AS category, t.is_anomaly
         FROM transactions t
@@ -285,7 +317,6 @@ def dashboard():
 
     recent_transactions_list = [dict(tx) for tx in recent_transactions]
 
-    # Budget alerts (current month)
     budget_alerts_rows = conn.execute("""
         SELECT b.id, c.name AS name, b.limit_amount, 
                SUM(t.amount) AS spent
@@ -326,5 +357,9 @@ def dashboard():
         "budget_alerts": budget_alerts_list
     })
 
+
+# === MAIN ===
 if __name__ == "__main__":
+    init_db()  
+    add_default_categories()  # Add the 10 default categories
     app.run(debug=True, port=5000)

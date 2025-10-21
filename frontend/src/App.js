@@ -11,14 +11,6 @@ import Reports from "./features/reports/Reports";
 function App() {
   return (
     <Router>
-      {/*<nav>
-        <Link to="/dashboard">Dashboard</Link>
-        <Link to="/transactions">Transactions</Link>
-        <Link to="/accounts">Accounts</Link>
-        <Link to="/budget">Budget</Link>
-        <Link to="/reports">Reports</Link>
-      </nav>*/}
-
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
