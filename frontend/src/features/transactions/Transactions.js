@@ -1,35 +1,75 @@
 import React, { useEffect, useState } from "react";
-import { fetchTransactions } from "../../services/transactionApi";
-import "./Transactions.css"; // your CSS copied from HTML
-import { useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import styles from "./Transactions.module.css";
 
-const Transactions = () => {
-  const [transactions, setTransactions] = useState([]);
-  
-  const [error, setError] = useState(null); // define error state
-  const [loading, setLoading] = useState(true); // loading state
+function Transactions() {
+  const { accountId } = useParams();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchTransactions()
-      .then((res) => {
-        if (!res) {
-          setError("Failed to fetch transactions.");
-        } else {
-          setTransactions(res);
-        }
-      })
-      .catch(() => setError("Failed to fetch transactions."))
-      .finally(() => setLoading(false));
-  }, []);
+  const [transactions, setTransactions] = useState([]);
+  const [search, setSearch] = useState("");
+  const [accounts, setAccounts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [selectedAccount, setSelectedAccount] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  if (error) return <p style={{ color: "red", padding: "20px" }}>{error}</p>;
-  if (loading) return <p style={{ padding: "20px" }}>Loading...</p>;
+  useEffect(() => {
+    fetchAccounts();
+    fetchCategories();
+    fetchTransactions();
+  }, [accountId, selectedAccount, selectedCategory]);
+
+  const fetchAccounts = async () => {
+    const res = await fetch("http://localhost:5000/api/accounts");
+    const data = await res.json();
+    setAccounts(data);
+  };
+
+  const fetchCategories = async () => {
+    const res = await fetch("http://localhost:5000/api/categories");
+    const data = await res.json();
+    setCategories(data);
+  };
+
+  const fetchTransactions = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      let url = "http://localhost:5000/api/transactions";
+      const params = new URLSearchParams();
+
+      if (accountId && selectedAccount === "all") {
+        params.append("accountId", accountId);
+      } else if (selectedAccount !== "all") {
+        params.append("accountId", selectedAccount);
+      }
+
+      if (selectedCategory !== "all") {
+        params.append("categoryId", selectedCategory);
+      }
+
+      if (search.trim()) {
+        params.append("search", search);
+      }
+
+      url += `?${params.toString()}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      setTransactions(data);
+    } catch (err) {
+      setError("Failed to fetch transactions");
+    }
+    setLoading(false);
+  };
 
   return (
-    <div className="container">
+    <div className={styles.pageContainer}>
+      {/* Personal Finance Tracker Header */}
       <div className="header">PERSONAL FINANCE TRACKER</div>
 
+      {/* Navigation Bar */}
       <div className="nav">
         <a href="/" className="nav-item">Dashboard</a>
         <a href="/transactions" className="nav-item active">Transactions</a>
@@ -38,68 +78,97 @@ const Transactions = () => {
         <a href="/reports" className="nav-item">Reports</a>
       </div>
 
-      <div className="page-header">
-        <div className="page-title">TRANSACTIONS</div>
-        <button className="add-btn" onClick={() => navigate("/transactions/add")}>Add Transaction</button>
+      {/* Transactions Page Header */}
+      <div className={styles.header}>
+        <h2>Transactions</h2>
+        <button
+          className={styles.addBtn}
+          onClick={() => navigate("/transactions/add")}
+        >
+          + Add Transaction
+        </button>
       </div>
 
-      <div className="filters">{/* Filters remain static */}</div>
+      {/* Filters */}
+      <div className={styles.filters}>
+        <select
+          value={selectedAccount}
+          onChange={(e) => setSelectedAccount(e.target.value)}
+        >
+          <option value="all">All Accounts</option>
+          {accounts.map((acc) => (
+            <option key={acc.id} value={acc.id}>
+              {acc.name}
+            </option>
+          ))}
+        </select>
 
-      <div className="search-container">
-        <span className="search-icon">🔍</span>
-        <input type="text" className="search-input" placeholder="Description..." />
+        <select
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+        >
+          <option value="all">All Categories</option>
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.name}
+            </option>
+          ))}
+        </select>
+
+        <input
+          type="text"
+          placeholder="Search Description..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <button onClick={fetchTransactions}>🔍 Search</button>
       </div>
 
-      <div className="table-container">
-        <table>
+      {/* Transactions Table */}
+      {loading ? (
+        <p style={{ textAlign: "center" }}>Loading transactions...</p>
+      ) : error ? (
+        <p style={{ textAlign: "center", color: "red" }}>{error}</p>
+      ) : (
+        <table className={styles.table}>
           <thead>
             <tr>
-              <th>DATE</th>
-              <th>DESCRIPTION</th>
-              <th>CATEGORY</th>
-              <th>ACCOUNT</th>
-              <th>AMOUNT</th>
+              <th>Date</th>
+              <th>Description</th>
+              <th>Category</th>
+              <th>Account</th>
+              <th>Amount</th>
             </tr>
           </thead>
           <tbody>
-            {transactions.map((t) => (
-              <tr key={t.id} className={t.is_anomaly ? "anomaly-row" : ""}>
-                <td>{t.date}</td>
-                <td>
-                  {t.description}
-                  {t.is_anomaly && (
-                    <>
-                      <span className="anomaly-warning">ANOMALY - Large amount</span>
-                      <div className="anomaly-actions">
-                        <button className="anomaly-btn">Mark as Normal</button>
-                        <button className="anomaly-btn">Ignore</button>
-                      </div>
-                    </>
-                  )}
-                </td>
-                <td>{t.category}</td>
-                <td>{t.account}</td>
-                <td className={`amount ${t.amount >= 0 ? "positive" : "negative"}`}>
-                  {t.amount >= 0 ? `+$${t.amount}` : `-$${Math.abs(t.amount)}`}
+            {transactions.length > 0 ? (
+              transactions.map((tx) => (
+                <tr key={tx.id}>
+                  <td>{tx.date}</td>
+                  <td>{tx.description}</td>
+                  <td>{tx.category_name || "-"}</td>
+                  <td>{tx.account_name || "-"}</td>
+                  <td
+                    className={
+                      tx.type === "income" ? styles.income : styles.expense
+                    }
+                  >
+                    {tx.type === "income" ? "+" : "-"}${tx.amount.toFixed(2)}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="5" style={{ textAlign: "center" }}>
+                  No transactions found.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
-      </div>
-
-      <div className="pagination">
-        <div className="pagination-info">
-          Showing 1-{transactions.length} of {transactions.length} transactions
-        </div>
-        <div className="pagination-controls">
-          <button className="page-btn">‹</button>
-          <button className="page-btn active">1</button>
-          <button className="page-btn">›</button>
-        </div>
-      </div>
+      )}
     </div>
   );
-};
+}
 
 export default Transactions;
