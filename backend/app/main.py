@@ -361,5 +361,5 @@ def dashboard():
 # === MAIN ===
 if __name__ == "__main__":
     init_db()  
-    add_default_categories()  # Add the 10 default categories
+    add_default_categories()  
     app.run(debug=True, port=5000)
