@@ -7,12 +7,11 @@ app = Flask(__name__)
 CORS(app)
 
 # === DATABASE CONFIGURATION ===
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "finance.db")
-print("📁 Using database file:", DB_PATH)
+print("Using database file:", DB_PATH)
 
 
-# === HELPER FUNCTION ===
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -24,46 +23,9 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.executescript("""
-    CREATE TABLE IF NOT EXISTS accounts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        type TEXT CHECK(type IN ('CHECKING','SAVINGS','CREDIT_CARD')),
-        initial_balance REAL DEFAULT 0
-    );
+   
 
-    CREATE TABLE IF NOT EXISTS categories (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS transactions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        date TEXT,
-        description TEXT,
-        amount REAL,
-        account_id INTEGER,
-        category_id INTEGER,
-        transaction_type TEXT CHECK(transaction_type IN ('INCOME','EXPENSE','TRANSFER')),
-        is_anomaly INTEGER DEFAULT 0,
-        FOREIGN KEY (account_id) REFERENCES accounts(id),
-        FOREIGN KEY (category_id) REFERENCES categories(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS budgets (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        category_id INTEGER,
-        limit_amount REAL,
-        month TEXT,
-        FOREIGN KEY (category_id) REFERENCES categories(id)
-    );
-    """)
-    conn.commit()
-    conn.close()
-    print("✅ Database initialized successfully")
-
-
-# === ADD DEFAULT CATEGORIES ===
+   # adding default categories
 def add_default_categories():
     categories = [
         'Entertainment', 'Food & Dining', 'Groceries', 'Healthcare',
@@ -76,15 +38,14 @@ def add_default_categories():
         for cat in categories:
             cursor.execute("INSERT INTO categories (name) VALUES (?)", (cat,))
         conn.commit()
-        print("✅ Default categories added")
+        print("Default categories added")
     else:
-        print("ℹ️ Categories already exist")
+        print("Categories already exist")
     conn.close()
 
 
-# === ROUTES ===
 
-# Add new account
+# === ADD NEW ACCOUNT ===
 @app.route("/api/accounts", methods=["POST"])
 def add_account():
     data = request.get_json()
@@ -121,7 +82,7 @@ def add_account():
     return jsonify({"message": "Account added successfully", "id": new_id}), 201
 
 
-# Get all accounts
+# === GET ALL ACCOUNTS ===
 @app.route("/api/accounts", methods=["GET"])
 def get_accounts():
     conn = get_db_connection()
@@ -143,7 +104,7 @@ def get_accounts():
     return jsonify(accounts)
 
 
-# Account by ID (GET, PUT, DELETE)
+# === GET ACCOUNT / UPDATE / DELETE BY ID ===
 @app.route("/api/accounts/<int:id>", methods=["GET", "DELETE", "PUT"])
 def account_by_id(id):
     conn = get_db_connection()
@@ -184,7 +145,43 @@ def account_by_id(id):
         return jsonify({"message": "Account updated successfully"})
 
 
-# Get categories
+# === FIXED ROUTE: ACCOUNTS WITH BALANCE ===
+@app.route("/api/accounts-with-balance", methods=["GET"])
+def get_accounts_with_balance():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    query = """
+        SELECT 
+            a.id,
+            a.name,
+            a.type,
+            a.initial_balance + 
+            IFNULL(SUM(CASE 
+                WHEN t.transaction_type = 'INCOME' THEN t.amount
+                WHEN t.transaction_type = 'EXPENSE' THEN -t.amount
+                ELSE 0 
+            END), 0) AS current_balance
+        FROM accounts a
+        LEFT JOIN transactions t ON a.id = t.account_id
+        GROUP BY a.id, a.name, a.type, a.initial_balance
+        ORDER BY a.name;
+    """
+    rows = cursor.execute(query).fetchall()
+    conn.close()
+
+    accounts = [
+        {
+            "id": row[0],
+            "name": row[1],
+            "type": row[2],
+            "current_balance": row[3]
+        }
+        for row in rows
+    ]
+    return jsonify(accounts)
+
+
+# === GET CATEGORIES ===
 @app.route("/api/categories", methods=["GET"])
 def get_categories():
     conn = get_db_connection()
@@ -193,7 +190,7 @@ def get_categories():
     return jsonify([dict(row) for row in rows])
 
 
-# Get all transactions
+# === GET ALL TRANSACTIONS ===
 @app.route("/api/transactions", methods=["GET"])
 def get_transactions():
     account_id = request.args.get("accountId")
@@ -227,7 +224,7 @@ def get_transactions():
     return jsonify([dict(row) for row in rows])
 
 
-# Add a transaction
+# === ADD TRANSACTION ===
 @app.route("/api/transactions", methods=["POST"])
 def add_transaction():
     data = request.get_json()
@@ -287,7 +284,7 @@ def add_transaction():
     return jsonify({"message": "Transaction added successfully", "id": new_id}), 201
 
 
-# Dashboard API
+# === DASHBOARD API ===
 @app.route("/api/dashboard", methods=["GET"])
 def dashboard():
     conn = get_db_connection()
@@ -358,8 +355,8 @@ def dashboard():
     })
 
 
-# === MAIN ===
+# === MAIN ENTRY ===
 if __name__ == "__main__":
-    init_db()  
-    add_default_categories()  
+    init_db()
+    add_default_categories()
     app.run(debug=True, port=5000)

@@ -15,7 +15,8 @@ function AddTransaction({ onTransactionAdded }) {
     category_id: "",
   });
 
-  // Fetch accounts and categories on mount
+  // fetch the account and category
+  
   useEffect(() => {
     fetch("http://localhost:5000/api/accounts")
       .then((res) => res.json())

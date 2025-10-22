@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { fetchDashboardData } from "../../services/dashboardApi";
-import "./Dashboard.css"; // make sure this file exists with your CSS
+import "./Dashboard.css"; 
 
 const Dashboard = () => {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
+  const [accounts, setAccounts] = useState([]);
 
   useEffect(() => {
+    // Fetch main dashboard data
     fetchDashboardData()
       .then((res) => {
         if (!res) {
@@ -16,10 +18,22 @@ const Dashboard = () => {
         }
       })
       .catch(() => setError("Failed to fetch dashboard data."));
+
+    // ✅ Fetch accounts with balance for "Accounts Overview"
+    fetch("http://localhost:5000/api/accounts-with-balance")
+      .then((res) => res.json())
+      .then((data) => setAccounts(data))
+      .catch(() => console.error("Failed to fetch accounts with balance"));
   }, []);
 
   if (error) return <p style={{ color: "red", padding: "20px" }}>{error}</p>;
   if (!data) return <p style={{ padding: "20px" }}>Loading...</p>;
+
+  // Calculate total balance from accounts list
+  const totalAccountBalance = accounts.reduce(
+    (sum, acc) => sum + acc.current_balance,
+    0
+  );
 
   return (
     <div className="container">
@@ -35,7 +49,7 @@ const Dashboard = () => {
         <a href="/reports" className="nav-item">Reports</a>
       </div>
 
-      {/* KPI Cards + Chart */}
+      {/* KPI Cards */}
       <div className="dashboard-grid">
         <div className="kpi-card">
           <h3>TOTAL BALANCE</h3>
@@ -60,7 +74,44 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Recent Transactions & Budget Alerts */}
+      {/* ✅ Accounts Overview Section */}
+      <div className="panel" style={{ marginTop: "30px" }}>
+        <div className="panel-header">ACCOUNTS OVERVIEW</div>
+        {accounts.length === 0 ? (
+          <p style={{ padding: "10px" }}>No accounts found.</p>
+        ) : (
+          <table className="accounts-table">
+            <thead>
+              <tr>
+                <th>Account Name</th>
+                <th>Type</th>
+                <th style={{ textAlign: "right" }}>Current Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {accounts.map((acc) => (
+                <tr key={acc.id}>
+                  <td>{acc.name}</td>
+                  <td>{acc.type}</td>
+                  <td style={{ textAlign: "right" }}>
+                    ${acc.current_balance.toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan="2"><strong>Total</strong></td>
+                <td style={{ textAlign: "right" }}>
+                  <strong>${totalAccountBalance.toFixed(2)}</strong>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        )}
+      </div>
+
+      {/* Bottom Section */}
       <div className="bottom-section">
         {/* Transactions */}
         <div className="panel">
@@ -70,7 +121,11 @@ const Dashboard = () => {
               <div key={idx} className="transaction">
                 <div className={`transaction-top ${tx.is_anomaly ? "anomaly" : ""}`}>
                   <span>{tx.name}</span>
-                  <span className={`transaction-amount ${tx.amount >= 0 ? "positive" : "negative"}`}>
+                  <span
+                    className={`transaction-amount ${
+                      tx.amount >= 0 ? "positive" : "negative"
+                    }`}
+                  >
                     ${Math.abs(tx.amount)}
                   </span>
                 </div>
@@ -78,7 +133,9 @@ const Dashboard = () => {
               </div>
             ))}
           </div>
-          <a href="/transactions" className="view-all">View All Transactions →</a>
+          <a href="/transactions" className="view-all">
+            View All Transactions →
+          </a>
         </div>
 
         {/* Budget Alerts */}
@@ -90,7 +147,9 @@ const Dashboard = () => {
                 <div className="budget-header">
                   <span className={`budget-status ${b.status}`}>{b.name}</span>
                 </div>
-                <div className="budget-progress">${b.spent} / ${b.limit}</div>
+                <div className="budget-progress">
+                  ${b.spent} / ${b.limit}
+                </div>
               </div>
             ))}
           </div>

@@ -241,3 +241,29 @@ body {
     font-size: 20px;
   }
 }
+
+
+
+.accounts-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.accounts-table th,
+.accounts-table td {
+  border-bottom: 1px solid #ddd;
+  padding: 8px;
+}
+
+.accounts-table th {
+  background-color: #f4f4f4;
+  text-align: left;
+  font-weight: bold;
+}
+
+.accounts-table tfoot td {
+  background-color: #fafafa;
+  font-weight: bold;
+}
