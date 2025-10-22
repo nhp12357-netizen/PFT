@@ -18,30 +18,6 @@ def get_db_connection():
     return conn
 
 
-# === INITIALIZE DATABASE ===
-def init_db():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-   
-
-   # adding default categories
-def add_default_categories():
-    categories = [
-        'Entertainment', 'Food & Dining', 'Groceries', 'Healthcare',
-        'Investment', 'Other Income', 'Rent', 'Salary', 'Shopping', 'Transportation'
-    ]
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    existing = cursor.execute("SELECT COUNT(*) FROM categories").fetchone()[0]
-    if existing == 0:
-        for cat in categories:
-            cursor.execute("INSERT INTO categories (name) VALUES (?)", (cat,))
-        conn.commit()
-        print("Default categories added")
-    else:
-        print("Categories already exist")
-    conn.close()
 
 
 
@@ -357,6 +333,6 @@ def dashboard():
 
 # === MAIN ENTRY ===
 if __name__ == "__main__":
-    init_db()
-    add_default_categories()
+    #init_db()
+    #add_default_categories()
     app.run(debug=True, port=5000)

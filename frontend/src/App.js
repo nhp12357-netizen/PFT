@@ -1,11 +1,13 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Dashboard from "./features/dashboard/Dashboard";
-import Transactions from "./features/transactions/Transactions";
+
+import Transactions from "./features/transactions/Transcations";
+
 import AddTransaction from "./features/transactions/AddTranscations";
 
 import Accounts from "./features/accounts/Accounts";
-import AddEditAccount from "./features/accounts/AddEditAccount";  // For adding
-import EditAccount from "./features/accounts/EditAccount";        // For editing
+import AddEditAccount from "./features/accounts/AddEditAccount";  
+import EditAccount from "./features/accounts/EditAccount";       
 
 import Budget from "./features/budget/Budget";
 import Reports from "./features/reports/Reports";
