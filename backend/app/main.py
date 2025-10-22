@@ -18,6 +18,67 @@ def get_db_connection():
     return conn
 
 
+# === INITIALIZE DATABASE ===
+def init_db():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.executescript("""
+    CREATE TABLE IF NOT EXISTS accounts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        type TEXT CHECK(type IN ('CHECKING','SAVINGS','CREDIT_CARD')),
+        initial_balance REAL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT,
+        description TEXT,
+        amount REAL,
+        account_id INTEGER,
+        category_id INTEGER,
+        transaction_type TEXT CHECK(transaction_type IN ('INCOME','EXPENSE','TRANSFER')),
+        is_anomaly INTEGER DEFAULT 0,
+        FOREIGN KEY (account_id) REFERENCES accounts(id),
+        FOREIGN KEY (category_id) REFERENCES categories(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS budgets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category_id INTEGER,
+        limit_amount REAL,
+        month TEXT,
+        FOREIGN KEY (category_id) REFERENCES categories(id)
+    );
+    """)
+    conn.commit()
+    conn.close()
+    print("Database initialized successfully")
+
+
+   # adding default categories
+def add_default_categories():
+    categories = [
+        'Entertainment', 'Food & Dining', 'Groceries', 'Healthcare',
+        'Investment', 'Other Income', 'Rent', 'Salary', 'Shopping', 'Transportation'
+    ]
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    existing = cursor.execute("SELECT COUNT(*) FROM categories").fetchone()[0]
+    if existing == 0:
+        for cat in categories:
+            cursor.execute("INSERT INTO categories (name) VALUES (?)", (cat,))
+        conn.commit()
+        print("Default categories added")
+    else:
+        print("Categories already exist")
+    conn.close()
 
 
 
@@ -80,48 +141,93 @@ def get_accounts():
     return jsonify(accounts)
 
 
-# === GET ACCOUNT / UPDATE / DELETE BY ID ===
-@app.route("/api/accounts/<int:id>", methods=["GET", "DELETE", "PUT"])
-def account_by_id(id):
-    conn = get_db_connection()
-    account = conn.execute("SELECT * FROM accounts WHERE id = ?", (id,)).fetchone()
+@app.route("/api/accounts/<int:id>", methods=["PUT"])
+def update_account_name(id):
+    data = request.get_json()
+    new_name = data.get("name")
 
+    if not new_name:
+        return jsonify({"error": "Account name is required"}), 400
+
+    conn = get_db_connection()
+    try:
+        conn.execute("UPDATE accounts SET name = ? WHERE id = ?", (new_name, id))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "An account with this name already exists"}), 400
+    finally:
+        conn.close()
+
+    return jsonify({"message": "Account name updated successfully"})
+
+
+# === GET SINGLE ACCOUNT BY ID ===
+@app.route("/api/accounts/<int:id>", methods=["GET"])
+def get_account_by_id(id):
+    """Fetch a single account by its ID, including current balance."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    row = cursor.execute("""
+        SELECT 
+            a.id,
+            a.name,
+            a.type,
+            a.initial_balance,
+            COALESCE(
+                (SELECT SUM(t.amount)
+                 FROM transactions t
+                 WHERE t.account_id = a.id), 
+                 0
+            ) AS current_balance
+        FROM accounts a
+        WHERE a.id = ?
+    """, (id,)).fetchone()
+
+    conn.close()
+
+    if row is None:
+        return jsonify({"error": "Account not found"}), 404
+
+    return jsonify(dict(row)), 200
+
+
+# === DELETE ACCOUNT (ONLY IF NO TRANSACTIONS) ===
+@app.route("/api/accounts/<int:id>", methods=["DELETE"])
+def delete_account(id):
+    """Delete an account only if no transactions are linked to it."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Check if account exists
+    account = cursor.execute("SELECT * FROM accounts WHERE id = ?", (id,)).fetchone()
     if account is None:
         conn.close()
         return jsonify({"error": "Account not found"}), 404
 
-    if request.method == "GET":
+    # Check if any transactions are linked to this account
+    tx_count = cursor.execute(
+        "SELECT COUNT(*) AS count FROM transactions WHERE account_id = ?", (id,)
+    ).fetchone()["count"]
+
+    if tx_count > 0:
         conn.close()
-        return jsonify(dict(account))
+        return jsonify({
+            "error": "Cannot delete account with linked transactions"
+        }), 400
 
-    elif request.method == "DELETE":
-        conn.execute("DELETE FROM accounts WHERE id = ?", (id,))
-        conn.commit()
-        conn.close()
-        return jsonify({"message": "Account deleted successfully"})
+    # Delete the account
+    cursor.execute("DELETE FROM accounts WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
 
-    elif request.method == "PUT":
-        data = request.get_json()
-        name = data.get("name", account["name"])
-        acc_type = data.get("type", account["type"])
-        initial_balance = data.get("initial_balance", account["initial_balance"])
-
-        ALLOWED_TYPES = ('CHECKING', 'SAVINGS', 'CREDIT_CARD')
-        if acc_type not in ALLOWED_TYPES:
-            conn.close()
-            return jsonify({"error": f"Invalid account type. Must be one of {ALLOWED_TYPES}"}), 400
-
-        conn.execute("""
-            UPDATE accounts
-            SET name = ?, type = ?, initial_balance = ?
-            WHERE id = ?
-        """, (name, acc_type, initial_balance, id))
-        conn.commit()
-        conn.close()
-        return jsonify({"message": "Account updated successfully"})
+    return jsonify({"message": "Account deleted successfully"}), 200
 
 
-# === FIXED ROUTE: ACCOUNTS WITH BALANCE ===
+
+
+
+
 @app.route("/api/accounts-with-balance", methods=["GET"])
 def get_accounts_with_balance():
     conn = get_db_connection()
@@ -166,13 +272,17 @@ def get_categories():
     return jsonify([dict(row) for row in rows])
 
 
-# === GET ALL TRANSACTIONS ===
+# === GET ALL TRANSACTIONS WITH FILTERS ===
 @app.route("/api/transactions", methods=["GET"])
 def get_transactions():
     account_id = request.args.get("accountId")
+    category_id = request.args.get("categoryId")
+    description = request.args.get("description")  # search by description
+    
     conn = get_db_connection()
     cursor = conn.cursor()
-
+    
+    # Base query
     query = """
         SELECT 
             t.id,
@@ -186,18 +296,34 @@ def get_transactions():
         FROM transactions t
         JOIN accounts a ON t.account_id = a.id
         JOIN categories c ON t.category_id = c.id
+        WHERE 1=1
     """
-
     params = []
+    
+    # Apply account filter if provided
     if account_id:
-        query += " WHERE t.account_id = ?"
+        query += " AND t.account_id = ?"
         params.append(account_id)
-
+    
+    # Apply category filter if provided
+    if category_id:
+        query += " AND t.category_id = ?"
+        params.append(category_id)
+    
+    # Apply description filter
+    if description:
+        query += " AND t.description LIKE ?"
+        params.append(f"%{description}%")
+    
     query += " ORDER BY t.date DESC"
+    
     cursor.execute(query, params)
     rows = cursor.fetchall()
     conn.close()
-    return jsonify([dict(row) for row in rows])
+    
+    transactions = [dict(row) for row in rows]
+    return jsonify(transactions)
+
 
 
 # === ADD TRANSACTION ===

@@ -2,12 +2,15 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Dashboard from "./features/dashboard/Dashboard";
 
 import Transactions from "./features/transactions/Transcations";
-
 import AddTransaction from "./features/transactions/AddTranscations";
 
 import Accounts from "./features/accounts/Accounts";
 import AddEditAccount from "./features/accounts/AddEditAccount";  
-import EditAccount from "./features/accounts/EditAccount";       
+import EditAccount from "./features/accounts/EditAccountName"; 
+import DeleteAccount from "./features/accounts/DeleteAccount"; 
+ 
+
+
 
 import Budget from "./features/budget/Budget";
 import Reports from "./features/reports/Reports";
@@ -27,8 +30,12 @@ function App() {
 
         {/* Accounts */}
         <Route path="/accounts" element={<Accounts />} />
-        <Route path="/accounts/add" element={<AddEditAccount />} /> {/* Add account */}
-        <Route path="/accounts/edit/:id" element={<EditAccount />} /> {/* Edit account */}
+        <Route path="/accounts/add" element={<AddEditAccount />} /> 
+        <Route path="/accounts/edit/:id" element={<EditAccount />} /> 
+       <Route path="/accounts/delete/:id" element={<DeleteAccount />} />
+
+
+
 
         {/* Budget & Reports */}
         <Route path="/budget" element={<Budget />} />

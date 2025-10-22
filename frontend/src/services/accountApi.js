@@ -1,3 +1,4 @@
+// === Fetch all accounts ===
 export async function fetchAccounts() {
   try {
     const res = await fetch("http://127.0.0.1:5000/api/accounts");
@@ -8,3 +9,32 @@ export async function fetchAccounts() {
     return [];
   }
 }
+
+// === Delete an account ===
+export async function deleteAccount(accountId) {
+  try {
+    const res = await fetch(`http://127.0.0.1:5000/api/accounts/${accountId}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) throw new Error(`Failed to delete account: ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.error("Error deleting account:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+// === Get transactions for a specific account ===
+export async function getTransactionsByAccount(accountId) {
+  try {
+    const res = await fetch(
+      `http://127.0.0.1:5000/api/transactions?accountId=${accountId}`
+    );
+    if (!res.ok) throw new Error(`Failed to fetch transactions: ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.error("Error fetching transactions:", err);
+    return [];
+  }
+}
+

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { fetchAccounts } from "../../services/accountApi";
+import { fetchAccounts, deleteAccount, getTransactionsByAccount } from "../../services/accountApi";
 import "./Accounts.css";
 import { useNavigate } from "react-router-dom";
 
@@ -31,6 +31,33 @@ const Accounts = () => {
 
   const handleEdit = (accountId) => {
     navigate(`/accounts/edit/${accountId}`);
+  };
+
+  const handleDelete = async (accountId) => {
+    // Check if account has transactions
+    const transactions = await getTransactionsByAccount(accountId);
+    if (transactions.length > 0) {
+      alert("Cannot delete account with linked transactions.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this account? This cannot be undone."
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await deleteAccount(accountId);
+      if (res.success) {
+        alert("Account deleted successfully!");
+        loadAccounts(); // refresh list
+      } else {
+        alert(res.error || "Failed to delete account.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete account.");
+    }
   };
 
   const viewTransactions = (accountId) => {
@@ -82,9 +109,11 @@ const Accounts = () => {
             </div>
             <div className="account-actions">
               <button className="account-btn" onClick={() => handleEdit(a.id)}>Edit</button>
-              <button className="account-btn" onClick={() => viewTransactions(a.id)}>
-                View Transactions
-              </button>
+              <button className="account-btn" onClick={() => viewTransactions(a.id)}>View Transactions</button>
+          <button className="account-btn delete" onClick={() => navigate(`/accounts/delete/${a.id}`)}>
+      Delete
+    </button>
+
             </div>
           </div>
         ))}
