@@ -82,6 +82,86 @@ def add_default_categories():
 
 
 
+    # ===== Existing imports, app setup, DB setup =====
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+import sqlite3
+import os
+
+app = Flask(__name__)
+CORS(app)
+
+# Your get_db_connection(), init_db(), add_default_categories(), etc.
+# Your existing account and transaction routes
+# e.g., /api/accounts, /api/transactions, etc.
+
+# ===== ADD CATEGORY MANAGEMENT ROUTES HERE =====
+
+# Get all categories
+@app.route("/api/categories", methods=["GET"])
+def fetch_categories():   # renamed from get_categories
+    conn = get_db_connection()
+    rows = conn.execute("SELECT id, name, type FROM categories").fetchall()
+    conn.close()
+    return jsonify([dict(row) for row in rows])
+
+# Add new category
+@app.route("/api/categories", methods=["POST"])
+def create_category():   # renamed
+    data = request.get_json()
+    name = data.get("name")
+    type_ = data.get("type")  # "Income" or "Expense"
+    
+    if not name or type_ not in ["Income", "Expense"]:
+        return jsonify({"error": "Invalid category"}), 400
+
+    conn = get_db_connection()
+    try:
+        conn.execute("INSERT INTO categories (name, type) VALUES (?, ?)", (name, type_))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "Category already exists"}), 400
+    finally:
+        conn.close()
+    return jsonify({"message": "Category added"}), 201
+
+# Edit category
+@app.route("/api/categories/<int:id>", methods=["PUT"])
+def update_category(id):   # renamed
+    data = request.get_json()
+    name = data.get("name")
+    type_ = data.get("type")
+    
+    if not name or type_ not in ["Income", "Expense"]:
+        return jsonify({"error": "Invalid category"}), 400
+
+    conn = get_db_connection()
+    conn.execute("UPDATE categories SET name=?, type=? WHERE id=?", (name, type_, id))
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Category updated"})
+
+# Delete category (only if no transactions)
+@app.route("/api/categories/<int:id>", methods=["DELETE"])
+def remove_category(id):   # renamed
+    conn = get_db_connection()
+    tx_count = conn.execute(
+        "SELECT COUNT(*) AS count FROM transactions WHERE category_id=?", (id,)
+    ).fetchone()["count"]
+    if tx_count > 0:
+        conn.close()
+        return jsonify({"error": "Cannot delete category linked to transactions"}), 400
+    conn.execute("DELETE FROM categories WHERE id=?", (id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Category deleted"})
+
+
+
+
+
+
+
 # === ADD NEW ACCOUNT ===
 @app.route("/api/accounts", methods=["POST"])
 def add_account():
