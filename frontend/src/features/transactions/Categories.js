@@ -1,73 +1,62 @@
+
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { fetchCategories, addCategory, deleteCategory } from "../../services/categoriesApi";
 
 function Categories() {
   const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
   const [name, setName] = useState("");
-  const [type, setType] = useState("Income");
+  const [type, setType] = useState("INCOME");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchCategories();
+    loadCategories();
   }, []);
 
-  const fetchCategories = async () => {
+  const loadCategories = async () => {
+    setLoading(true);
+    setError("");
     try {
-      const res = await fetch("http://localhost:5000/api/categories");
-      const data = await res.json();
+      const data = await fetchCategories();
       setCategories(data);
     } catch (err) {
-      setError("Failed to fetch categories");
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const addCategory = async () => {
-    if (!name) return;
+  const handleAddCategory = async () => {
+    if (!name.trim()) return alert("Category name cannot be empty");
+
     try {
-      const res = await fetch("http://localhost:5000/api/categories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, type })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setName("");
-        fetchCategories();
-      } else {
-        alert(data.error);
-      }
+      const newCategory = await addCategory(name.trim(), type);
+      setCategories(prev => [...prev, newCategory]);
+      setName("");
     } catch (err) {
-      console.error(err);
+      alert("Failed to add category: " + err.message);
     }
   };
 
-  const deleteCategory = async (id) => {
-    const confirmed = window.confirm("Are you sure you want to delete this category?");
-    if (!confirmed) return;
+  const handleDeleteCategory = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this category?")) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/categories/${id}`, {
-        method: "DELETE"
-      });
-      const data = await res.json();
-      if (res.ok) {
-        fetchCategories();
-      } else {
-        alert(data.error);
-      }
+      await deleteCategory(Number(id));
+      setCategories(prev => prev.filter(cat => cat.id !== id));
     } catch (err) {
-      console.error(err);
+      alert("Failed to delete category: " + err.message);
     }
   };
 
   return (
     <div style={{ padding: "20px" }}>
       <h2>Manage Categories</h2>
-      <div>
+
+      <div style={{ marginBottom: "20px" }}>
         <input
           type="text"
           placeholder="Category Name"
@@ -75,10 +64,10 @@ function Categories() {
           onChange={(e) => setName(e.target.value)}
         />
         <select value={type} onChange={(e) => setType(e.target.value)}>
-          <option value="Income">Income</option>
-          <option value="Expense">Expense</option>
+          <option value="INCOME">INCOME</option>
+          <option value="EXPENSE">EXPENSE</option>
         </select>
-        <button onClick={addCategory}>Add</button>
+        <button onClick={handleAddCategory}>Add</button>
         <button onClick={() => navigate("/transactions")} style={{ marginLeft: "10px" }}>Back</button>
       </div>
 
@@ -86,8 +75,10 @@ function Categories() {
         <p>Loading categories...</p>
       ) : error ? (
         <p style={{ color: "red" }}>{error}</p>
+      ) : categories.length === 0 ? (
+        <p>No categories found.</p>
       ) : (
-        <table border="1" cellPadding="10" style={{ marginTop: "20px" }}>
+        <table border="1" cellPadding="10">
           <thead>
             <tr>
               <th>Name</th>
@@ -96,12 +87,12 @@ function Categories() {
             </tr>
           </thead>
           <tbody>
-            {categories.map((cat) => (
+            {categories.map(cat => (
               <tr key={cat.id}>
                 <td>{cat.name}</td>
                 <td>{cat.type}</td>
                 <td>
-                  <button onClick={() => deleteCategory(cat.id)}>Delete</button>
+                  <button onClick={() => handleDeleteCategory(cat.id)}>Delete</button>
                 </td>
               </tr>
             ))}

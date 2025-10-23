@@ -62,22 +62,28 @@ def init_db():
     print("Database initialized successfully")
 
 
-   # adding default categories
 def add_default_categories():
     categories = [
-        'Entertainment', 'Food & Dining', 'Groceries', 'Healthcare',
-        'Investment', 'Other Income', 'Rent', 'Salary', 'Shopping', 'Transportation'
+        ('Entertainment', 'Expense'),
+        ('Food & Dining', 'Expense'),
+        ('Groceries', 'Expense'),
+        ('Healthcare', 'Expense'),
+        ('Investment', 'Income'),
+        ('Other Income', 'Income'),
+        ('Rent', 'Expense'),
+        ('Salary', 'Income'),
+        ('Shopping', 'Expense'),
+        ('Transportation', 'Expense'),
     ]
     conn = get_db_connection()
     cursor = conn.cursor()
     existing = cursor.execute("SELECT COUNT(*) FROM categories").fetchone()[0]
     if existing == 0:
-        for cat in categories:
-            cursor.execute("INSERT INTO categories (name) VALUES (?)", (cat,))
+        cursor.executemany("INSERT INTO categories (name, type) VALUES (?, ?)", categories)
         conn.commit()
-        print("Default categories added")
+        print(" Default categories added")
     else:
-        print("Categories already exist")
+        print(" Categories already exist")
     conn.close()
 
 
@@ -91,9 +97,9 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# Your get_db_connection(), init_db(), add_default_categories(), etc.
-# Your existing account and transaction routes
-# e.g., /api/accounts, /api/transactions, etc.
+
+
+
 
 # ===== ADD CATEGORY MANAGEMENT ROUTES HERE =====
 
@@ -107,23 +113,29 @@ def fetch_categories():   # renamed from get_categories
 
 # Add new category
 @app.route("/api/categories", methods=["POST"])
-def create_category():   # renamed
+def create_category():
     data = request.get_json()
     name = data.get("name")
-    type_ = data.get("type")  # "Income" or "Expense"
-    
-    if not name or type_ not in ["Income", "Expense"]:
+    type_ = data.get("type")  # "INCOME" or "EXPENSE"
+
+    if not name or type_ not in ["INCOME", "EXPENSE"]:
         return jsonify({"error": "Invalid category"}), 400
 
     conn = get_db_connection()
     try:
-        conn.execute("INSERT INTO categories (name, type) VALUES (?, ?)", (name, type_))
+        cursor = conn.execute(
+            "INSERT INTO categories (name, type) VALUES (?, ?)", (name, type_)
+        )
         conn.commit()
+        category_id = cursor.lastrowid  # get the inserted row ID
     except sqlite3.IntegrityError:
         return jsonify({"error": "Category already exists"}), 400
     finally:
         conn.close()
-    return jsonify({"message": "Category added"}), 201
+
+    # Return full category object, not just message
+    return jsonify({"id": category_id, "name": name, "type": type_}), 201
+
 
 # Edit category
 @app.route("/api/categories/<int:id>", methods=["PUT"])
@@ -131,8 +143,8 @@ def update_category(id):   # renamed
     data = request.get_json()
     name = data.get("name")
     type_ = data.get("type")
-    
-    if not name or type_ not in ["Income", "Expense"]:
+
+    if not name or type_ not in ["INCOME", "EXPENSE"]:
         return jsonify({"error": "Invalid category"}), 400
 
     conn = get_db_connection()
@@ -155,7 +167,6 @@ def remove_category(id):   # renamed
     conn.commit()
     conn.close()
     return jsonify({"message": "Category deleted"})
-
 
 
 
@@ -535,6 +546,88 @@ def dashboard():
         "recent_transactions": recent_transactions_list,
         "budget_alerts": budget_alerts_list
     })
+
+
+# ===== BUDGET MANAGEMENT ROUTES ===== 
+
+from flask import request, jsonify
+
+@app.route('/api/budgets/save', methods=['POST'])
+def save_budget():
+    try:
+        budgets = request.get_json()
+        print("📥 Received JSON:", budgets)
+
+        if not budgets or not isinstance(budgets, list):
+            return jsonify({"error": "Expected a list of budgets"}), 400
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        for b in budgets:
+            category_id = b.get('category_id')
+            limit_amount = b.get('limit_amount')
+            month = b.get('month')
+
+            if not category_id or not limit_amount or not month:
+                continue  # skip invalid entries
+
+            cursor.execute(
+                "INSERT INTO budgets (category_id, limit_amount, month) VALUES (?, ?, ?)",
+                (category_id, limit_amount, month)
+            )
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({"message": "Budgets saved successfully"}), 201
+
+    except Exception as e:
+        print(" Error in /api/budgets/save:", str(e))
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/budgets", methods=["GET"])
+def get_budgets():
+    """
+    Returns all budgets with spent amounts for the current month.
+    """
+    conn = get_db_connection()
+    query = """
+        SELECT 
+            b.id,
+            c.name AS category,
+            b.limit_amount AS budget,
+            COALESCE(SUM(t.amount), 0) AS spent
+        FROM budgets b
+        JOIN categories c ON b.category_id = c.id
+        LEFT JOIN transactions t 
+            ON t.category_id = c.id 
+            AND t.transaction_type='EXPENSE' 
+            AND strftime('%Y-%m', t.date) = strftime('%Y-%m', 'now')
+        WHERE b.month = strftime('%m', 'now')
+        GROUP BY b.id
+        ORDER BY c.name
+    """
+    rows = conn.execute(query).fetchall()
+    conn.close()
+
+    budgets = []
+    for row in rows:
+        spent = row["spent"]
+        limit_amt = row["budget"]
+        remaining = limit_amt - spent
+        percentage = round((spent / limit_amt) * 100, 1) if limit_amt else 0
+        budgets.append({
+            "id": row["id"],
+            "category": row["category"],
+            "budget": limit_amt,
+            "spent": spent,
+            "remaining": remaining,
+            "percentage": percentage,
+            "status": "over" if spent > limit_amt else "at_limit" if spent == limit_amt else "under"
+        })
+
+    return jsonify(budgets)
 
 
 # === MAIN ENTRY ===
