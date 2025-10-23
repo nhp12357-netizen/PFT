@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from flask_cors import cross_origin
 import sqlite3
 import os
 
@@ -477,6 +478,58 @@ def add_transaction():
     return jsonify({"message": "Transaction added successfully", "id": new_id}), 201
 
 
+@app.route('/api/transactions/<int:transaction_id>', methods=['PUT'])
+def update_transaction(transaction_id):
+    data = request.get_json()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE transactions
+        SET date = ?, description = ?, amount = ?, transaction_type = ?, account_id = ?, category_id = ?
+        WHERE id = ?
+    """, (
+        data['date'], data['description'], data['amount'],
+        data['transaction_type'], data['account_id'], data['category_id'], transaction_id
+    ))
+    
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Transaction updated successfully!"})
+
+
+
+
+
+@app.route("/api/transactions/<int:id>", methods=["DELETE", "OPTIONS"])
+@cross_origin()
+def delete_transaction(id):
+    if request.method == "OPTIONS":
+        return '', 200  # handle CORS preflight
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Check if transaction exists
+    tx = cursor.execute("SELECT * FROM transactions WHERE id = ?", (id,)).fetchone()
+    if tx is None:
+        conn.close()
+        return jsonify({"error": "Transaction not found"}), 404
+
+    # Delete transaction
+    cursor.execute("DELETE FROM transactions WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"message": "Transaction deleted successfully"}), 200
+
+
+
+
+
+
+
+
 # === DASHBOARD API ===
 @app.route("/api/dashboard", methods=["GET"])
 def dashboard():
@@ -628,6 +681,60 @@ def get_budgets():
         })
 
     return jsonify(budgets)
+
+
+
+
+@app.route("/api/reports", methods=["GET"])
+def get_reports():
+    conn = get_db_connection()
+
+    # Total Income & Expense for current month
+    monthly_income = conn.execute("""
+        SELECT SUM(amount) AS total FROM transactions
+        WHERE transaction_type='INCOME' AND strftime('%Y-%m', date) = strftime('%Y-%m', 'now')
+    """).fetchone()["total"] or 0
+
+    monthly_expense = conn.execute("""
+        SELECT SUM(amount) AS total FROM transactions
+        WHERE transaction_type='EXPENSE' AND strftime('%Y-%m', date) = strftime('%Y-%m', 'now')
+    """).fetchone()["total"] or 0
+
+    # Category-wise expense
+    category_expense_rows = conn.execute("""
+        SELECT c.name AS category, SUM(t.amount) AS spent
+        FROM transactions t
+        JOIN categories c ON t.category_id = c.id
+        WHERE t.transaction_type='EXPENSE' AND strftime('%Y-%m', t.date) = strftime('%Y-%m', 'now')
+        GROUP BY c.name
+    """).fetchall()
+    category_expense = [dict(row) for row in category_expense_rows]
+
+    # Account balances
+    account_rows = conn.execute("""
+        SELECT 
+            a.name,
+            a.initial_balance + 
+            COALESCE(SUM(CASE 
+                WHEN t.transaction_type='INCOME' THEN t.amount
+                WHEN t.transaction_type='EXPENSE' THEN -t.amount
+                ELSE 0 END), 0) AS balance
+        FROM accounts a
+        LEFT JOIN transactions t ON a.id = t.account_id
+        GROUP BY a.id
+    """).fetchall()
+    accounts = [dict(row) for row in account_rows]
+
+    conn.close()
+
+    return jsonify({
+        "monthly_income": monthly_income,
+        "monthly_expense": monthly_expense,
+        "savings": monthly_income - monthly_expense,
+        "category_expense": category_expense,
+        "accounts": accounts
+    })
+
 
 
 # === MAIN ENTRY ===

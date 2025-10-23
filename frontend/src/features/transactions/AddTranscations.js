@@ -6,6 +6,7 @@ function AddTransaction({ onTransactionAdded }) {
   const navigate = useNavigate();
   const [accounts, setAccounts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [error, setError] = useState("");
   const [formData, setFormData] = useState({
     date: "",
     description: "",
@@ -15,8 +16,7 @@ function AddTransaction({ onTransactionAdded }) {
     category_id: "",
   });
 
-  // fetch the account and category
-  
+  // Fetch accounts and categories
   useEffect(() => {
     fetch("http://localhost:5000/api/accounts")
       .then((res) => res.json())
@@ -31,10 +31,38 @@ function AddTransaction({ onTransactionAdded }) {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    setError(""); // clear error when user types
+  };
+
+  const validateForm = () => {
+    // 1️⃣ Date validation
+    if (!formData.date) {
+      setError("Please select a valid date.");
+      return false;
+    }
+
+    // 2️⃣ Amount validation
+    const amount = parseFloat(formData.amount);
+    if (isNaN(amount) || amount <= 0) {
+      setError("Amount must be a positive number.");
+      return false;
+    }
+
+    // 3️⃣ Check required fields
+    if (!formData.account_id || !formData.category_id) {
+      setError("Please select both account and category.");
+      return false;
+    }
+
+    return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
 
     const payload = {
       date: formData.date,
@@ -53,18 +81,18 @@ function AddTransaction({ onTransactionAdded }) {
       });
 
       if (res.ok) {
-        alert("Transaction added successfully!");
+        alert("✅ Transaction added successfully!");
         if (onTransactionAdded) {
-          onTransactionAdded(); // refresh the list in parent
+          onTransactionAdded(); // refresh list in parent
         } else {
-          navigate("/transactions"); // fallback redirect
+          navigate("/transactions");
         }
       } else {
         const data = await res.json();
-        alert("Error: " + (data.error || "Failed to add transaction"));
+        alert("❌ Error: " + (data.error || "Failed to add transaction"));
       }
     } catch (err) {
-      alert("Failed to add transaction");
+      alert("❌ Failed to add transaction");
       console.error(err);
     }
   };
@@ -72,6 +100,8 @@ function AddTransaction({ onTransactionAdded }) {
   return (
     <div className={styles.formContainer}>
       <h2>Add Transaction</h2>
+      {error && <p className={styles.errorMsg}>{error}</p>}
+
       <form onSubmit={handleSubmit}>
         <input
           type="date"
@@ -97,6 +127,8 @@ function AddTransaction({ onTransactionAdded }) {
           value={formData.amount}
           onChange={handleChange}
           required
+          min="0.01"
+          step="0.01"
         />
 
         <select name="type" value={formData.type} onChange={handleChange}>
@@ -132,14 +164,16 @@ function AddTransaction({ onTransactionAdded }) {
           ))}
         </select>
 
-        <button type="submit">Add Transaction</button>
-        <button
-          type="button"
-          className={styles.cancelBtn}
-          onClick={() => navigate(-1)}
-        >
-          Cancel
-        </button>
+        <div className={styles.formButtons}>
+          <button type="submit">Add Transaction</button>
+          <button
+            type="button"
+            className={styles.cancelBtn}
+            onClick={() => navigate(-1)}
+          >
+            Cancel
+          </button>
+        </div>
       </form>
     </div>
   );

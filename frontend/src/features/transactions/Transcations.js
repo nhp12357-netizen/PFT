@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import styles from "./Transactions.module.css";
+import { deleteTransaction } from "../../services/transactionApi";
 
 function Transactions() {
   const { accountId } = useParams();
@@ -19,6 +20,7 @@ function Transactions() {
     fetchAccounts();
     fetchCategories();
     fetchTransactions();
+    // eslint-disable-next-line
   }, [accountId, selectedAccount, selectedCategory]);
 
   // === Fetch all accounts ===
@@ -52,19 +54,16 @@ function Transactions() {
       let url = "http://localhost:5000/api/transactions";
       const params = new URLSearchParams();
 
-      // Filter by account
       if (accountId && selectedAccount === "all") {
         params.append("accountId", accountId);
       } else if (selectedAccount !== "all") {
         params.append("accountId", selectedAccount);
       }
 
-      // Filter by category
       if (selectedCategory !== "all") {
         params.append("categoryId", selectedCategory);
       }
 
-      // Filter by description search
       if (search.trim()) {
         params.append("search", search.trim());
       }
@@ -80,6 +79,15 @@ function Transactions() {
     }
 
     setLoading(false);
+  };
+
+  // ===== Handle Delete Transaction =====
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this transaction?"))
+      return;
+
+    const deleted = await deleteTransaction(id);
+    if (deleted) fetchTransactions();
   };
 
   return (
@@ -106,8 +114,6 @@ function Transactions() {
           >
             + Add Transaction
           </button>
-
-          {/* ✅ Manage Categories button */}
           <button
             className={styles.addBtn}
             style={{ marginLeft: "10px", backgroundColor: "#007bff" }}
@@ -120,7 +126,6 @@ function Transactions() {
 
       {/* === Filters === */}
       <div className={styles.filters}>
-        {/* Account filter */}
         <select
           value={selectedAccount}
           onChange={(e) => setSelectedAccount(e.target.value)}
@@ -133,7 +138,6 @@ function Transactions() {
           ))}
         </select>
 
-        {/* Category filter */}
         <select
           value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
@@ -146,7 +150,6 @@ function Transactions() {
           ))}
         </select>
 
-        {/* Description search */}
         <input
           type="text"
           placeholder="Search by Description..."
@@ -170,6 +173,7 @@ function Transactions() {
               <th>Category</th>
               <th>Account</th>
               <th>Amount</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -190,11 +194,27 @@ function Transactions() {
                     {tx.transaction_type === "INCOME" ? "+" : "-"}$
                     {tx.amount.toFixed(2)}
                   </td>
+                  <td>
+                    <button
+                      className={styles.editBtn}
+                      onClick={() =>
+                        navigate(`/transactions/edit/${tx.id}`)
+                      }
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
+                      className={styles.deleteBtn}
+                      onClick={() => handleDelete(tx.id)}
+                    >
+                      🗑 Delete
+                    </button>
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="5" style={{ textAlign: "center" }}>
+                <td colSpan="6" style={{ textAlign: "center" }}>
                   No transactions found.
                 </td>
               </tr>

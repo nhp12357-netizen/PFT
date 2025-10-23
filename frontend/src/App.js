@@ -3,6 +3,7 @@ import Dashboard from "./features/dashboard/Dashboard";
 
 import Transactions from "./features/transactions/Transcations";
 import AddTransaction from "./features/transactions/AddTranscations";
+import EditTransaction from "./features/transactions/EditTransaction";
 import Categories from "./features/transactions/Categories";
 
 
@@ -29,6 +30,7 @@ function App() {
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/transactions/:accountId" element={<Transactions />} />
         <Route path="/transactions/add" element={<AddTransaction />} />
+        <Route path="/transactions/edit/:id" element={<EditTransaction />} />
         <Route path="/categories" element={<Categories />} />
 
         {/* Accounts */}

@@ -1,0 +1,176 @@
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import styles from "./Transactions.module.css";
+
+function EditTransaction() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  const [accounts, setAccounts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [error, setError] = useState("");
+  const [formData, setFormData] = useState({
+    date: "",
+    description: "",
+    amount: "",
+    type: "expense",
+    account_id: "",
+    category_id: "",
+  });
+
+  // Fetch accounts, categories, and transaction details
+  useEffect(() => {
+    fetch("http://localhost:5000/api/accounts")
+      .then((res) => res.json())
+      .then(setAccounts);
+
+    fetch("http://localhost:5000/api/categories")
+      .then((res) => res.json())
+      .then(setCategories);
+
+    fetch(`http://localhost:5000/api/transactions/${id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setFormData({
+          date: data.date,
+          description: data.description,
+          amount: data.amount,
+          type: data.transaction_type.toLowerCase(),
+          account_id: data.account_id,
+          category_id: data.category_id,
+        });
+      })
+      .catch((err) => console.error("Failed to load transaction:", err));
+  }, [id]);
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setError("");
+  };
+
+  const validateForm = () => {
+    if (!formData.date) {
+      setError("Please select a valid date.");
+      return false;
+    }
+    if (isNaN(formData.amount) || formData.amount <= 0) {
+      setError("Amount must be a positive number.");
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!validateForm()) return;
+
+    const payload = {
+      date: formData.date,
+      description: formData.description,
+      amount: parseFloat(formData.amount),
+      transaction_type: formData.type.toUpperCase(),
+      account_id: parseInt(formData.account_id),
+      category_id: parseInt(formData.category_id),
+    };
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/transactions/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        alert("✅ Transaction updated successfully!");
+        navigate("/transactions");
+      } else {
+        alert("❌ Failed to update transaction");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("❌ Something went wrong");
+    }
+  };
+
+  return (
+    <div className={styles.formContainer}>
+      <h2>Edit Transaction</h2>
+      {error && <p className={styles.errorMsg}>{error}</p>}
+
+      <form onSubmit={handleSubmit}>
+        <input
+          type="date"
+          name="date"
+          value={formData.date}
+          onChange={handleChange}
+          required
+        />
+
+        <input
+          type="text"
+          name="description"
+          placeholder="Description"
+          value={formData.description}
+          onChange={handleChange}
+          required
+        />
+
+        <input
+          type="number"
+          name="amount"
+          placeholder="Amount"
+          value={formData.amount}
+          onChange={handleChange}
+          required
+        />
+
+        <select name="type" value={formData.type} onChange={handleChange}>
+          <option value="expense">Expense</option>
+          <option value="income">Income</option>
+        </select>
+
+        <select
+          name="account_id"
+          value={formData.account_id}
+          onChange={handleChange}
+          required
+        >
+          <option value="">Select Account</option>
+          {accounts.map((acc) => (
+            <option key={acc.id} value={acc.id}>
+              {acc.name}
+            </option>
+          ))}
+        </select>
+
+        <select
+          name="category_id"
+          value={formData.category_id}
+          onChange={handleChange}
+          required
+        >
+          <option value="">Select Category</option>
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.name}
+            </option>
+          ))}
+        </select>
+
+        <div className={styles.formButtons}>
+          <button type="submit">Update Transaction</button>
+          <button
+            type="button"
+            className={styles.cancelBtn}
+            onClick={() => navigate(-1)}
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+export default EditTransaction;
