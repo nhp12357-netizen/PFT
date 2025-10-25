@@ -80,16 +80,6 @@ const Dashboard = () => {
         </div>
 
         <div className="kpi-card">
-          <h3>TOTAL INCOME</h3>
-          <div className="value">${(data.total_income ?? 0).toFixed(2)}</div>
-        </div>
-
-        <div className="kpi-card">
-          <h3>TOTAL EXPENSE</h3>
-          <div className="value">${(data.total_expense ?? 0).toFixed(2)}</div>
-        </div>
-
-        <div className="kpi-card">
           <h3>INCOME (Month)</h3>
           <div className="value">${(data.monthly_income ?? 0).toFixed(2)}</div>
         </div>
