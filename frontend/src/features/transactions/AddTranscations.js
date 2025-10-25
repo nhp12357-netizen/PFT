@@ -13,7 +13,6 @@ function AddTransaction({ onTransactionAdded }) {
     date: "",
     description: "",
     amount: "",
-    type: "expense",
     account_id: "",
     category_id: "",
   });
@@ -33,7 +32,7 @@ function AddTransaction({ onTransactionAdded }) {
 
   // Suggest category based on description
   useEffect(() => {
-    if (formData.description.trim().length < 3) return; // minimal length
+    if (formData.description.trim().length < 3) return;
 
     const timeout = setTimeout(async () => {
       try {
@@ -59,7 +58,7 @@ function AddTransaction({ onTransactionAdded }) {
       } catch (err) {
         console.error("Suggestion error:", err);
       }
-    }, 500); // debounce typing
+    }, 500);
 
     return () => clearTimeout(timeout);
   }, [formData.description]);
@@ -71,11 +70,17 @@ function AddTransaction({ onTransactionAdded }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Determine transaction type from category
+    const selectedCategory = categories.find(
+      (cat) => cat.id === parseInt(formData.category_id)
+    );
+    const transactionType = selectedCategory?.type || "EXPENSE"; // default to EXPENSE if undefined
+
     const payload = {
       date: formData.date,
       description: formData.description,
       amount: parseFloat(formData.amount),
-      transaction_type: formData.type.toUpperCase(),
+      transaction_type: transactionType.toUpperCase(),
       account_id: parseInt(formData.account_id),
       category_id: parseInt(formData.category_id),
     };
@@ -137,11 +142,6 @@ function AddTransaction({ onTransactionAdded }) {
           onChange={handleChange}
           required
         />
-
-        <select name="type" value={formData.type} onChange={handleChange}>
-          <option value="expense">Expense</option>
-          <option value="income">Income</option>
-        </select>
 
         <select
           name="account_id"

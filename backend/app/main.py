@@ -376,12 +376,8 @@ def get_transactions():
     transactions = [dict(row) for row in rows]
     return jsonify(transactions)
 
+# === ADD NEW TRANSACTION ===
 
-
-
-
-
-# === ADD TRANSACTION ===
 @app.route("/api/transactions", methods=["POST"])
 def add_transaction():
     data = request.get_json()
@@ -390,7 +386,7 @@ def add_transaction():
     amount = data.get("amount")
     account_id = data.get("account_id")
     category_id = data.get("category_id")
-    transaction_type = data.get("transaction_type")
+    transaction_type = data.get("transaction_type")  # optional
     target_account_id = data.get("target_account_id")
 
     if not date or not description or not amount or not account_id or not category_id:
@@ -407,16 +403,27 @@ def add_transaction():
     cursor = conn.cursor()
 
     try:
+        # Determine transaction type from category if not provided
+        if not transaction_type:
+            cursor.execute("SELECT type FROM categories WHERE id = ?", (category_id,))
+            row = cursor.fetchone()
+            if row:
+                transaction_type = row["type"]
+            else:
+                transaction_type = "EXPENSE"  # default fallback
+
         if transaction_type == "TRANSFER":
             if not target_account_id:
                 return jsonify({"error": "Target account required for transfer"}), 400
 
+            # Record expense side
             cursor.execute("""
                 INSERT INTO transactions (date, description, amount, account_id, category_id, transaction_type)
                 VALUES (?, ?, ?, ?, ?, 'EXPENSE')
             """, (date, f"Transfer to account {target_account_id}", amount, account_id, category_id))
             expense_id = cursor.lastrowid
 
+            # Record income side
             cursor.execute("""
                 INSERT INTO transactions (date, description, amount, account_id, category_id, transaction_type)
                 VALUES (?, ?, ?, ?, ?, 'INCOME')
@@ -424,8 +431,13 @@ def add_transaction():
             income_id = cursor.lastrowid
 
             conn.commit()
-            return jsonify({"message": "Transfer recorded successfully", "expense_id": expense_id, "income_id": income_id}), 201
+            return jsonify({
+                "message": "Transfer recorded successfully",
+                "expense_id": expense_id,
+                "income_id": income_id
+            }), 201
 
+        # Regular transaction
         cursor.execute("""
             INSERT INTO transactions (date, description, amount, account_id, category_id, transaction_type)
             VALUES (?, ?, ?, ?, ?, ?)
