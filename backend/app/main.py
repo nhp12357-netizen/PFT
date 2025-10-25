@@ -1,106 +1,67 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-import pickle
 import sqlite3
 import os
-
+import numpy as np
+from datetime import datetime, timedelta
+import joblib
 app = Flask(__name__)
-CORS(app)
+
+CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"])
 
 # === DATABASE CONFIGURATION ===
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(BASE_DIR, "finance.db")
-print("Using database file:", DB_PATH)
-
+DB_PATH = os.path.join(BASE_DIR, "example.db")
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
+with open(os.path.join(BASE_DIR, "models/tfidf_vectorizer.pkl"), "rb") as f:
+    vectorizer = joblib.load(f)
 
-# === INITIALIZE DATABASE ===
-def init_db():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    cursor.executescript("""
-    CREATE TABLE IF NOT EXISTS accounts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        type TEXT CHECK(type IN ('CHECKING','SAVINGS','CREDIT_CARD')),
-        initial_balance REAL DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS categories (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS transactions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        date TEXT,
-        description TEXT,
-        amount REAL,
-        account_id INTEGER,
-        category_id INTEGER,
-        transaction_type TEXT CHECK(transaction_type IN ('INCOME','EXPENSE','TRANSFER')),
-        is_anomaly INTEGER DEFAULT 0,
-        FOREIGN KEY (account_id) REFERENCES accounts(id),
-        FOREIGN KEY (category_id) REFERENCES categories(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS budgets (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        category_id INTEGER,
-        limit_amount REAL,
-        month TEXT,
-        FOREIGN KEY (category_id) REFERENCES categories(id)
-    );
-    """)
-    conn.commit()
-    conn.close()
-    print("Database initialized successfully")
+with open(os.path.join(BASE_DIR, "models/logistic_regression_model.pkl"), "rb") as f:
+    classifier = joblib.load(f)
 
 
-def add_default_categories():
-    categories = [
-        ('Entertainment', 'Expense'),
-        ('Food & Dining', 'Expense'),
-        ('Groceries', 'Expense'),
-        ('Healthcare', 'Expense'),
-        ('Investment', 'Income'),
-        ('Other Income', 'Income'),
-        ('Rent', 'Expense'),
-        ('Salary', 'Income'),
-        ('Shopping', 'Expense'),
-        ('Transportation', 'Expense'),
-    ]
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    existing = cursor.execute("SELECT COUNT(*) FROM categories").fetchone()[0]
-    if existing == 0:
-        cursor.executemany("INSERT INTO categories (name, type) VALUES (?, ?)", categories)
-        conn.commit()
-        print(" Default categories added")
-    else:
-        print(" Categories already exist")
-    conn.close()
+@app.route("/api/suggest-category", methods=["POST"])
+def suggest_category():
+    try:
+        data = request.json
+        description = data.get("description", "").strip()
 
+        if not description:
+            return jsonify({"error": "Description is required"}), 400
 
+        # Transform text
+        X = vectorizer.transform([description])
 
-    # ===== Existing imports, app setup, DB setup =====
-from flask import Flask, jsonify, request
-from flask_cors import CORS
-import sqlite3
-import os
+        # Predict category
+        category_id = classifier.predict(X)[0]
+        if hasattr(category_id, "item"):  # convert numpy type to int
+            category_id = int(category_id)
 
-app = Flask(__name__)
-CORS(app)
+        # Fetch category name from database
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM categories WHERE id = ?", (category_id,))
+        row = cursor.fetchone()
+        conn.close()
 
+        if not row:
+            return jsonify({"error": "Category not found in database"}), 404
 
+        category_name = row[0]
 
+        return jsonify({
+            "category_id": category_id,
+            "suggested_category": category_name
+        })
 
+    except Exception as e:
+        print("Error in suggest-category:", e)
+        return jsonify({"error": "Prediction failed"}), 500
 
 # ===== ADD CATEGORY MANAGEMENT ROUTES HERE =====
 
@@ -283,7 +244,6 @@ def get_account_by_id(id):
 
     return jsonify(dict(row)), 200
 
-
 # === DELETE ACCOUNT (ONLY IF NO TRANSACTIONS) ===
 @app.route("/api/accounts/<int:id>", methods=["DELETE"])
 def delete_account(id):
@@ -304,9 +264,7 @@ def delete_account(id):
 
     if tx_count > 0:
         conn.close()
-        return jsonify({
-            "error": "Cannot delete account with linked transactions"
-        }), 400
+        return jsonify({"error": "Cannot delete account with linked transactions"}), 400
 
     # Delete the account
     cursor.execute("DELETE FROM accounts WHERE id = ?", (id,))
@@ -314,10 +272,6 @@ def delete_account(id):
     conn.close()
 
     return jsonify({"message": "Account deleted successfully"}), 200
-
-
-
-
 
 
 @app.route("/api/accounts-with-balance", methods=["GET"])
@@ -329,6 +283,7 @@ def get_accounts_with_balance():
             a.id,
             a.name,
             a.type,
+            a.initial_balance,   -- ✅ Include this
             a.initial_balance + 
             IFNULL(SUM(CASE 
                 WHEN t.transaction_type = 'INCOME' THEN t.amount
@@ -348,20 +303,13 @@ def get_accounts_with_balance():
             "id": row[0],
             "name": row[1],
             "type": row[2],
-            "current_balance": row[3]
+            "initial_balance": row[3],   # ✅ Add to output
+            "current_balance": row[4]    # ✅ Current balance shifted to index 4
         }
         for row in rows
     ]
     return jsonify(accounts)
 
-
-# === GET CATEGORIES ===
-@app.route("/api/categories", methods=["GET"])
-def get_categories():
-    conn = get_db_connection()
-    rows = conn.execute("SELECT id, name FROM categories").fetchall()
-    conn.close()
-    return jsonify([dict(row) for row in rows])
 
 
 # === GET ALL TRANSACTIONS WITH FILTERS ===
@@ -370,10 +318,11 @@ def get_transactions():
     account_id = request.args.get("accountId")
     category_id = request.args.get("categoryId")
     description = request.args.get("description")  # search by description
-    
+    month = request.args.get("month")  # ✅ format: "YYYY-MM"
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     # Base query
     query = """
         SELECT 
@@ -391,30 +340,42 @@ def get_transactions():
         WHERE 1=1
     """
     params = []
-    
+
     # Apply account filter if provided
     if account_id:
         query += " AND t.account_id = ?"
         params.append(account_id)
-    
+
     # Apply category filter if provided
     if category_id:
         query += " AND t.category_id = ?"
         params.append(category_id)
-    
+
     # Apply description filter
     if description:
         query += " AND t.description LIKE ?"
         params.append(f"%{description}%")
-    
+
+    # ✅ Apply month filter if provided (format: YYYY-MM)
+    if month:
+        try:
+            year, month_num = month.split("-")
+            # SQLite-compatible filtering (using substr)
+            query += " AND strftime('%Y', t.date) = ? AND strftime('%m', t.date) = ?"
+            params.extend([year, month_num])
+        except ValueError:
+            return jsonify({"error": "Invalid month format. Expected YYYY-MM"}), 400
+
+    # Sort newest first
     query += " ORDER BY t.date DESC"
-    
+
     cursor.execute(query, params)
     rows = cursor.fetchall()
     conn.close()
-    
+
     transactions = [dict(row) for row in rows]
     return jsonify(transactions)
+
 
 
 
@@ -477,91 +438,58 @@ def add_transaction():
 
     return jsonify({"message": "Transaction added successfully", "id": new_id}), 201
 
+# edit transaction
+@app.route('/api/transactions/<int:transaction_id>', methods=['PUT', 'OPTIONS'])
+def update_transaction(transaction_id):
+    if request.method == "OPTIONS":
+        return '', 200  # Preflight CORS OK
+
+    data = request.get_json()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Check if transaction exists
+    tx = cursor.execute("SELECT * FROM transactions WHERE id = ?", (transaction_id,)).fetchone()
+    if tx is None:
+        conn.close()
+        return jsonify({"error": "Transaction not found"}), 404
+
+    cursor.execute("""
+        UPDATE transactions
+        SET date = ?, description = ?, amount = ?, transaction_type = ?, account_id = ?, category_id = ?
+        WHERE id = ?
+    """, (
+        data['date'], data['description'], data['amount'],
+        data['transaction_type'], data['account_id'], data['category_id'], transaction_id
+    ))
+
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Transaction updated successfully"})
 
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_DIR = os.path.join(BASE_DIR, "..", "models")
+# delete transaction
 
-# Initialize default models if they don't exist
-def init_default_models():
-    from sklearn.feature_extraction.text import TfidfVectorizer
-    from sklearn.linear_model import LogisticRegression
-    import numpy as np
-    
-    # Sample training data
-    descriptions = [
-        "Grocery shopping",
-        "Monthly rent payment",
-        "Salary deposit",
-        "Restaurant dinner",
-        "Bus ticket",
-        "Movie tickets",
-        "Doctor visit"
-    ]
-    
-    categories = [
-        "Groceries",
-        "Rent",
-        "Salary",
-        "Food & Dining",
-        "Transportation",
-        "Entertainment",
-        "Healthcare"
-    ]
-    
-    # Create and train vectorizer
-    vectorizer = TfidfVectorizer()
-    X = vectorizer.fit_transform(descriptions)
-    
-    # Create and train model
-    model = LogisticRegression()
-    model.fit(X, categories)
-    
-    # Save models
-    os.makedirs(MODEL_DIR, exist_ok=True)
-    with open(os.path.join(MODEL_DIR, "tfidf_vectorizer.pkl"), "wb") as f:
-        pickle.dump(vectorizer, f)
-    with open(os.path.join(MODEL_DIR, "category_model.pkl"), "wb") as f:
-        pickle.dump(model, f)
-    
-    return vectorizer, model
+@app.route("/api/transactions/<int:id>", methods=["DELETE", "OPTIONS"])
+def delete_transaction(id):
+    if request.method == "OPTIONS":
+        return '', 200  # handle CORS preflight
 
-# Try to load models, create default ones if they don't exist
-try:
-    with open(os.path.join(MODEL_DIR, "tfidf_vectorizer.pkl"), "rb") as f:
-        vectorizer = pickle.load(f)
-    with open(os.path.join(MODEL_DIR, "category_model.pkl"), "rb") as f:
-        model = pickle.load(f)
-except (FileNotFoundError, pickle.UnpicklingError):
-    print("Creating default ML models...")
-    vectorizer, model = init_default_models()
+    conn = get_db_connection()
+    cursor = conn.cursor()
 
+    # Check if transaction exists
+    tx = cursor.execute("SELECT * FROM transactions WHERE id = ?", (id,)).fetchone()
+    if tx is None:
+        conn.close()
+        return jsonify({"error": "Transaction not found"}), 404
 
-@app.route("/api/suggest-category", methods=["POST"])
-def suggest_category():
-    """
-    Suggest a transaction category based on the description text
-    using pre-trained TF-IDF + Logistic Regression model.
-    """
-    try:
-        data = request.get_json()
-        description = data.get("description", "")
+    # Delete transaction
+    cursor.execute("DELETE FROM transactions WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
 
-        if not description.strip():
-            return jsonify({"error": "Description is required"}), 400
-
-        # Transform the input description
-        X = vectorizer.transform([description])
-        predicted_category = model.predict(X)[0]
-
-        return jsonify({"suggested_category": predicted_category})
-    except Exception as e:
-        print(f"Error in category suggestion: {str(e)}")
-        return jsonify({
-            "error": "Unable to suggest category",
-            "suggested_category": "Other"
-        }), 500
-
+    return jsonify({"message": "Transaction deleted successfully"}), 200
 
 # === DASHBOARD API ===
 @app.route("/api/dashboard", methods=["GET"])
@@ -634,90 +562,183 @@ def dashboard():
     })
 
 
-# ===== BUDGET MANAGEMENT ROUTES ===== 
-
-from flask import request, jsonify
-
-@app.route('/api/budgets/save', methods=['POST'])
-def save_budget():
-    try:
-        budgets = request.get_json()
-        print("📥 Received JSON:", budgets)
-
-        if not budgets or not isinstance(budgets, list):
-            return jsonify({"error": "Expected a list of budgets"}), 400
-
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-
-        for b in budgets:
-            category_id = b.get('category_id')
-            limit_amount = b.get('limit_amount')
-            month = b.get('month')
-
-            if not category_id or not limit_amount or not month:
-                continue  # skip invalid entries
-
-            cursor.execute(
-                "INSERT INTO budgets (category_id, limit_amount, month) VALUES (?, ?, ?)",
-                (category_id, limit_amount, month)
-            )
-
-        conn.commit()
-        conn.close()
-
-        return jsonify({"message": "Budgets saved successfully"}), 201
-
-    except Exception as e:
-        print(" Error in /api/budgets/save:", str(e))
-        return jsonify({"error": str(e)}), 500
-
 @app.route("/api/budgets", methods=["GET"])
 def get_budgets():
-    """
-    Returns all budgets with spent amounts for the current month.
-    """
+    # Example: month=2024-10
+    month_year = request.args.get("month")
+
+    if not month_year:
+        now = datetime.now()
+        month_year = now.strftime("%Y-%m")
+
+    try:
+        year, month = map(int, month_year.split("-"))
+    except ValueError:
+        return jsonify({"error": "Invalid month format. Use YYYY-MM"}), 400
+
     conn = get_db_connection()
     query = """
         SELECT 
             b.id,
-            c.name AS category,
-            b.limit_amount AS budget,
+            b.category_id,
+            c.name AS category_name,
+            b.limit_amount,
             COALESCE(SUM(t.amount), 0) AS spent
         FROM budgets b
         JOIN categories c ON b.category_id = c.id
-        LEFT JOIN transactions t 
-            ON t.category_id = c.id 
-            AND t.transaction_type='EXPENSE' 
-            AND strftime('%Y-%m', t.date) = strftime('%Y-%m', 'now')
-        WHERE b.month = strftime('%m', 'now')
-        GROUP BY b.id
-        ORDER BY c.name
+        LEFT JOIN transactions t
+            ON b.category_id = t.category_id
+            AND strftime('%Y', t.date) = ?
+            AND strftime('%m', t.date) = ?
+            AND t.transaction_type = 'EXPENSE'
+        WHERE b.year = ?
+          AND b.month = ?
+        GROUP BY b.id, b.category_id, c.name, b.limit_amount
+        ORDER BY c.name;
     """
-    rows = conn.execute(query).fetchall()
+
+    rows = conn.execute(query, (str(year), f"{month:02d}", year, month)).fetchall()
     conn.close()
 
-    budgets = []
-    for row in rows:
-        spent = row["spent"]
-        limit_amt = row["budget"]
-        remaining = limit_amt - spent
-        percentage = round((spent / limit_amt) * 100, 1) if limit_amt else 0
-        budgets.append({
-            "id": row["id"],
-            "category": row["category"],
-            "budget": limit_amt,
-            "spent": spent,
-            "remaining": remaining,
-            "percentage": percentage,
-            "status": "over" if spent > limit_amt else "at_limit" if spent == limit_amt else "under"
-        })
+    return jsonify([dict(r) for r in rows])
 
-    return jsonify(budgets)
 
+
+# --- Save or update budgets ---
+@app.route("/api/budgets/save", methods=["POST"])
+def save_budgets():
+    data = request.get_json()
+    if not data or not isinstance(data, list):
+        return jsonify({"error": "Expected a list of budgets"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    for b in data:
+        cat_id = b.get("category_id")
+        limit = b.get("limit_amount")
+        month = b.get("month")
+        year = b.get("year")
+
+        if not all([cat_id, limit, month, year]):
+            continue
+
+        # Upsert: if exists, update; else insert
+        cursor.execute("""
+            INSERT INTO budgets (category_id, month, year, limit_amount)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(category_id, month, year)
+            DO UPDATE SET limit_amount=excluded.limit_amount
+        """, (cat_id, month, year, limit))
+
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "Budgets saved successfully"})
+
+@app.route("/api/budgets/recommendations", methods=["GET"])
+def get_budget_recommendations():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Get last 3 months
+        today = datetime.today()
+        months = []
+        for i in range(3):
+            month = (today - timedelta(days=i*30)).strftime("%Y-%m")  # approximate previous months
+            months.append(month)
+        months = list(set(months))  # ensure uniqueness
+
+        # Query transactions for last 3 months grouped by category and month
+        query = """
+            SELECT
+                category_id,
+                strftime('%Y-%m', date) AS month,
+                SUM(amount) AS total
+            FROM transactions
+            WHERE transaction_type = 'EXPENSE'
+            AND strftime('%Y-%m', date) IN ({})
+            GROUP BY category_id, month
+        """.format(",".join(["?"]*len(months)))
+
+        cursor.execute(query, months)
+        rows = cursor.fetchall()
+
+        # Aggregate totals per category
+        totals = {}
+        for row in rows:
+            cat = row["category_id"]
+            if cat not in totals:
+                totals[cat] = []
+            totals[cat].append(row["total"])
+
+        # Compute average per category
+        recommendations = {}
+        for cat, vals in totals.items():
+            recommendations[cat] = round(sum(vals) / len(vals), 2)
+
+        conn.close()
+        return jsonify(recommendations)
+
+    except Exception as e:
+        print("Error in budget recommendations:", str(e))
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/report", methods=["GET"])
+def get_report():
+    month = request.args.get("month")  # Format: 'YYYY-MM'
+    account_id = request.args.get("accountId")  # Optional
+
+    if not month:
+        return jsonify({"error": "month parameter is required"}), 400
+
+    year, month_num = month.split("-")
+
+    query = """
+    SELECT 
+        c.id AS category_id,
+        c.name AS category_name,
+        SUM(t.amount) AS total_spent,
+        b.limit_amount AS budget,
+        (b.limit_amount - SUM(t.amount)) AS difference
+    FROM transactions t
+    JOIN categories c ON t.category_id = c.id
+    LEFT JOIN budgets b 
+        ON b.category_id = c.id 
+       AND b.year = ?
+       AND b.month = ?
+    WHERE strftime('%Y', t.date) = ?
+      AND strftime('%m', t.date) = ?
+      AND t.transaction_type = 'EXPENSE'
+    """
+
+    params = [year, int(month_num), year, month_num]
+
+    if account_id:
+        query += " AND t.account_id = ?"
+        params.append(account_id)
+
+    query += " GROUP BY c.id, b.limit_amount ORDER BY total_spent DESC"
+
+    conn = get_db_connection()
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+
+    report = [
+        {
+            "category_id": row["category_id"],
+            "category_name": row["category_name"],
+            "total_spent": row["total_spent"] or 0,
+            "budget": row["budget"],
+            "difference": row["difference"] if row["budget"] is not None else None
+        }
+        for row in rows
+    ]
+
+    return jsonify(report)
 
 # === MAIN ENTRY ===
 if __name__ == "__main__":
-    #init_db()
-    #add_default_categories()
+   
     app.run(debug=True, port=5000)

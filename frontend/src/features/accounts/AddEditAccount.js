@@ -1,53 +1,48 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import "./AddEditAccount.css"; // reuse your CSS
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import "./AddEditAccount.css"; // reuse the same CSS
 
-const EditAccountName = () => {
+const AddEditAccount = () => {
   const navigate = useNavigate();
-  const { id } = useParams(); // account ID
 
   const [accountName, setAccountName] = useState("");
-
-  // Fetch existing account name
-  useEffect(() => {
-    if (id) {
-      fetch(`http://localhost:5000/api/accounts/${id}`)
-        .then((res) => res.json())
-        .then((data) => setAccountName(data.name))
-        .catch((err) => console.error("Error fetching account:", err));
-    }
-  }, [id]);
+  const [accountType, setAccountType] = useState("CHECKING");
+  const [initialBalance, setInitialBalance] = useState(0);
 
   const handleSave = async () => {
     if (!accountName.trim()) {
-      alert("Account name cannot be empty");
+      alert("Account name cannot be empty!");
       return;
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/accounts/${id}`, {
-        method: "PUT",
+      const response = await fetch("http://localhost:5000/api/accounts", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: accountName }),
+        body: JSON.stringify({
+          name: accountName,
+          type: accountType,
+          initial_balance: parseFloat(initialBalance) || 0,
+        }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        alert("Account name updated successfully!");
+        alert("Account added successfully!");
         navigate("/accounts");
       } else {
         alert("Error: " + (data.error || "Something went wrong."));
       }
     } catch (err) {
-      alert("Failed to save account. Please try again later.");
+      alert("Failed to add account. Please try again later.");
       console.error(err);
     }
   };
 
   return (
     <div className="add-account-container">
-      <div className="add-account-header">EDIT ACCOUNT NAME</div>
+      <div className="add-account-header">ADD ACCOUNT</div>
 
       <div className="form-group">
         <label>Account Name:</label>
@@ -55,6 +50,27 @@ const EditAccountName = () => {
           type="text"
           value={accountName}
           onChange={(e) => setAccountName(e.target.value)}
+        />
+      </div>
+
+      <div className="form-group">
+        <label>Account Type:</label>
+        <select
+          value={accountType}
+          onChange={(e) => setAccountType(e.target.value)}
+        >
+          <option value="CHECKING">Checking</option>
+          <option value="SAVINGS">Savings</option>
+          <option value="CREDIT_CARD">Credit Card</option>
+        </select>
+      </div>
+
+      <div className="form-group">
+        <label>Initial Balance:</label>
+        <input
+          type="number"
+          value={initialBalance}
+          onChange={(e) => setInitialBalance(e.target.value)}
         />
       </div>
 
@@ -70,4 +86,4 @@ const EditAccountName = () => {
   );
 };
 
-export default EditAccountName;
+export default AddEditAccount;

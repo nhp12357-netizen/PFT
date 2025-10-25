@@ -218,3 +218,31 @@
 .go-set-btn:hover {
   background-color: #1565C0;
 }
+
+.progress-container {
+  width: 100%;
+  background-color: #e0e0e0;
+  border-radius: 4px;
+  height: 12px; /* important */
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.progress-bar {
+  height: 100%;
+  transition: width 0.3s ease;
+  background-color: #4caf50; /* default green */
+  border-radius: 4px 0 0 4px;
+}
+
+.progress-over {
+  background-color: #f44336;
+}
+
+.progress-warning {
+  background-color: #ff9800;
+}
+
+.progress-ok {
+  background-color: #4caf50;
+}

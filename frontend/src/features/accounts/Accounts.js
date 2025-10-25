@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { fetchAccounts, deleteAccount, getTransactionsByAccount } from "../../services/accountApi";
-import "./Accounts.css";
+import { deleteAccount, getTransactionsByAccount } from "../../services/accountApi";
 import { useNavigate } from "react-router-dom";
+import "./Accounts.css";
 
 const Accounts = () => {
   const navigate = useNavigate();
@@ -9,48 +9,42 @@ const Accounts = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // ✅ Load accounts with dynamic balance
   useEffect(() => {
-    loadAccounts();
+    fetch("http://127.0.0.1:5000/api/accounts-with-balance")
+      .then((res) => res.json())
+      .then((data) => {
+        console.log("Accounts with balance:", data);
+        setAccounts(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setError("Failed to fetch accounts.");
+        setLoading(false);
+      });
   }, []);
 
-  const loadAccounts = async () => {
-    try {
-      const res = await fetchAccounts();
-      if (!res) setError("Failed to fetch accounts.");
-      else setAccounts(res);
-    } catch {
-      setError("Failed to fetch accounts.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAddAccount = () => {
-    navigate("/accounts/add");
-  };
-
-  const handleEdit = (accountId) => {
-    navigate(`/accounts/edit/${accountId}`);
-  };
+  const handleAddAccount = () => navigate("/accounts/add");
+  const handleEdit = (accountId) => navigate(`/accounts/edit/${accountId}`);
+  const viewTransactions = (accountId) => navigate(`/transactions?accountId=${accountId}`);
 
   const handleDelete = async (accountId) => {
-    // Check if account has transactions
     const transactions = await getTransactionsByAccount(accountId);
     if (transactions.length > 0) {
       alert("Cannot delete account with linked transactions.");
       return;
     }
-
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this account? This cannot be undone."
-    );
-    if (!confirmed) return;
+    if (!window.confirm("Are you sure you want to delete this account?")) return;
 
     try {
       const res = await deleteAccount(accountId);
       if (res.success) {
         alert("Account deleted successfully!");
-        loadAccounts(); // refresh list
+        // Reload updated balances
+        fetch("http://127.0.0.1:5000/api/accounts-with-balance")
+          .then((res) => res.json())
+          .then((data) => setAccounts(data));
       } else {
         alert(res.error || "Failed to delete account.");
       }
@@ -60,12 +54,11 @@ const Accounts = () => {
     }
   };
 
-  const viewTransactions = (accountId) => {
-    navigate(`/transactions?accountId=${accountId}`);
-  };
-
   if (error) return <p style={{ color: "red", padding: "20px" }}>{error}</p>;
   if (loading) return <p style={{ padding: "20px" }}>Loading...</p>;
+
+  // ✅ Total of current balances
+  const totalBalance = accounts.reduce((sum, acc) => sum + acc.current_balance, 0);
 
   return (
     <div className="container">
@@ -81,42 +74,47 @@ const Accounts = () => {
 
       <div className="page-header">
         <div className="page-title">ACCOUNTS</div>
-        <button className="add-btn" onClick={handleAddAccount}>
-          Add New Account
-        </button>
+        <button className="add-btn" onClick={handleAddAccount}>Add New Account</button>
       </div>
 
-      <div className="accounts-container">
-        {accounts.map((a) => (
-          <div key={a.id} className="account-card">
-            <div className="account-header">
-              <div className="account-name">{a.name.toUpperCase()}</div>
-              <div
-                className={`account-balance ${
-                  a.current_balance >= 0 ? "positive" : "negative"
-                }`}
-              >
-                {a.current_balance >= 0
-                  ? `$${a.current_balance.toFixed(2)}`
-                  : `-$${Math.abs(a.current_balance).toFixed(2)}`}
-              </div>
-            </div>
-            <div className="account-type">
-              {a.type.charAt(0).toUpperCase() + a.type.slice(1).toLowerCase()} Account
-            </div>
-            <div className="account-details">
-              Initial: ${a.initial_balance.toFixed(2)} | Current: ${a.current_balance.toFixed(2)}
-            </div>
-            <div className="account-actions">
-              <button className="account-btn" onClick={() => handleEdit(a.id)}>Edit</button>
-              <button className="account-btn" onClick={() => viewTransactions(a.id)}>View Transactions</button>
-          <button className="account-btn delete" onClick={() => navigate(`/accounts/delete/${a.id}`)}>
-      Delete
-    </button>
-
-            </div>
-          </div>
-        ))}
+      <div className="accounts-table-container">
+        {accounts.length === 0 ? (
+          <p style={{ padding: "10px" }}>No accounts found.</p>
+        ) : (
+          <table className="accounts-table">
+            <thead>
+              <tr>
+                <th>Account Name</th>
+                <th>Type</th>
+                <th style={{ textAlign: "right" }}>Initial Balance</th>
+                <th style={{ textAlign: "right" }}>Current Balance</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {accounts.map((acc) => (
+                <tr key={acc.id}>
+                  <td>{acc.name}</td>
+                  <td>{acc.type.charAt(0).toUpperCase() + acc.type.slice(1).toLowerCase()}</td>
+                  <td style={{ textAlign: "right" }}>${acc.initial_balance}</td>
+                  <td style={{ textAlign: "right" }}>${acc.current_balance}</td>
+                  <td>
+                    <button className="account-btn" onClick={() => handleEdit(acc.id)}>Edit</button>
+                    <button className="account-btn" onClick={() => viewTransactions(acc.id)}>View</button>
+                    <button className="account-btn delete" onClick={() => handleDelete(acc.id)}>Delete</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan="3"><strong>Total</strong></td>
+                <td style={{ textAlign: "right" }}><strong>${totalBalance}</strong></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        )}
       </div>
     </div>
   );

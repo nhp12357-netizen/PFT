@@ -19,7 +19,7 @@ const Dashboard = () => {
       })
       .catch(() => setError("Failed to fetch dashboard data."));
 
-    // ✅ Fetch accounts with balance for "Accounts Overview"
+    // Fetch accounts with balance
     fetch("http://localhost:5000/api/accounts-with-balance")
       .then((res) => res.json())
       .then((data) => setAccounts(data))
@@ -51,30 +51,47 @@ const Dashboard = () => {
 
       {/* KPI Cards */}
       <div className="dashboard-grid">
+        {/* Current Balance */}
         <div className="kpi-card">
           <h3>TOTAL BALANCE</h3>
+          <div
+            className={`value ${
+              totalAccountBalance >= 0 ? "positive" : "negative"
+            }`}
+          >
+            ${totalAccountBalance.toFixed(2)}
+          </div>
+        </div>
+
+        {/* Total Balance */}
+        <div className="kpi-card">
+          <h3>INITIAL AMOUNT</h3>
           <div className="value">${data.total_balance.toFixed(2)}</div>
         </div>
+
         <div className="kpi-card">
           <h3>INCOME (Month)</h3>
           <div className="value">${data.monthly_income.toFixed(2)}</div>
         </div>
+
         <div className="chart-container">
           <div className="chart-header">CASH FLOW FORECAST</div>
           <div className="chart-placeholder">Chart Area (e.g., using Chart.js)</div>
           <div className="chart-footer">Next 30 Days Forecast</div>
         </div>
+
         <div className="kpi-card">
           <h3>EXPENSES (Month)</h3>
           <div className="value">${data.monthly_expense.toFixed(2)}</div>
         </div>
+
         <div className="kpi-card">
           <h3>SAVINGS RATE</h3>
           <div className="value">{data.savings_rate.toFixed(1)}%</div>
         </div>
       </div>
 
-      {/* ✅ Accounts Overview Section */}
+      {/* Accounts Overview */}
       <div className="panel" style={{ marginTop: "30px" }}>
         <div className="panel-header">ACCOUNTS OVERVIEW</div>
         {accounts.length === 0 ? (
@@ -93,7 +110,10 @@ const Dashboard = () => {
                 <tr key={acc.id}>
                   <td>{acc.name}</td>
                   <td>{acc.type}</td>
-                  <td style={{ textAlign: "right" }}>
+                  <td
+                    style={{ textAlign: "right" }}
+                    className={acc.current_balance >= 0 ? "positive" : "negative"}
+                  >
                     ${acc.current_balance.toFixed(2)}
                   </td>
                 </tr>
@@ -113,7 +133,7 @@ const Dashboard = () => {
 
       {/* Bottom Section */}
       <div className="bottom-section">
-        {/* Transactions */}
+        {/* Recent Transactions */}
         <div className="panel">
           <div className="panel-header">RECENT TRANSACTIONS</div>
           <div className="transaction-list">
@@ -126,7 +146,7 @@ const Dashboard = () => {
                       tx.amount >= 0 ? "positive" : "negative"
                     }`}
                   >
-                    ${Math.abs(tx.amount)}
+                    ${Math.abs(tx.amount).toFixed(2)}
                   </span>
                 </div>
                 <div className="transaction-category">{tx.category}</div>

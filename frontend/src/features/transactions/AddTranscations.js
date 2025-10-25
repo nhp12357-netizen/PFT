@@ -4,9 +4,11 @@ import styles from "./Transactions.module.css";
 
 function AddTransaction({ onTransactionAdded }) {
   const navigate = useNavigate();
+
   const [accounts, setAccounts] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [suggestedCategory, setSuggestedCategory] = useState("");
+  const [suggestedCategory, setSuggestedCategory] = useState(null);
+
   const [formData, setFormData] = useState({
     date: "",
     description: "",
@@ -18,51 +20,49 @@ function AddTransaction({ onTransactionAdded }) {
 
   // Fetch accounts and categories
   useEffect(() => {
-    fetch("http://localhost:5000/api/accounts")
+    fetch("http://127.0.0.1:5000/api/accounts")
       .then((res) => res.json())
       .then(setAccounts)
       .catch((err) => console.error("Failed to load accounts:", err));
 
-    fetch("http://localhost:5000/api/categories")
+    fetch("http://127.0.0.1:5000/api/categories")
       .then((res) => res.json())
       .then(setCategories)
       .catch((err) => console.error("Failed to load categories:", err));
   }, []);
 
-  // 🔍 Suggest category as user types description
+  // Suggest category based on description
   useEffect(() => {
-    const fetchSuggestion = async () => {
-      if (formData.description.trim().length < 3) return; // avoid spam
+    if (formData.description.trim().length < 3) return; // minimal length
 
+    const timeout = setTimeout(async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/suggest-category", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ description: formData.description }),
-        });
-        const data = await res.json();
+        const res = await fetch(
+          "http://127.0.0.1:5000/api/suggest-category",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ description: formData.description }),
+          }
+        );
 
-        if (data.suggested_category) {
+        const data = await res.json();
+        if (data.suggested_category && data.category_id) {
           setSuggestedCategory(data.suggested_category);
 
-          // Find the matching category_id automatically
-          const match = categories.find(
-            (cat) =>
-              cat.name.toLowerCase() ===
-              data.suggested_category.toLowerCase()
-          );
-          if (match) {
-            setFormData((prev) => ({ ...prev, category_id: match.id }));
-          }
+          // Automatically select the category in the dropdown
+          setFormData((prev) => ({
+            ...prev,
+            category_id: data.category_id,
+          }));
         }
       } catch (err) {
         console.error("Suggestion error:", err);
       }
-    };
+    }, 500); // debounce typing
 
-    const delay = setTimeout(fetchSuggestion, 600); // debounce typing
-    return () => clearTimeout(delay);
-  }, [formData.description, categories]);
+    return () => clearTimeout(timeout);
+  }, [formData.description]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -81,7 +81,7 @@ function AddTransaction({ onTransactionAdded }) {
     };
 
     try {
-      const res = await fetch("http://localhost:5000/api/transactions", {
+      const res = await fetch("http://127.0.0.1:5000/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -122,6 +122,7 @@ function AddTransaction({ onTransactionAdded }) {
           required
         />
 
+        {/* Display suggested category */}
         {suggestedCategory && (
           <p className={styles.suggestionText}>
             💡 Suggested Category: <strong>{suggestedCategory}</strong>
@@ -158,7 +159,7 @@ function AddTransaction({ onTransactionAdded }) {
 
         <select
           name="category_id"
-          value={formData.category_id}
+          value={formData.category_id || ""}
           onChange={handleChange}
           required
         >

@@ -8,3 +8,27 @@ export async function fetchTransactions() {
     return [];
   }
 }
+
+
+export const deleteTransaction = async (id) => {
+  if (!window.confirm("Are you sure you want to delete this transaction?")) return false;
+
+  try {
+    const res = await fetch(`http://localhost:5000/api/transactions/${id}`, {
+      method: "DELETE",
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      alert("Failed to delete: " + (data.error || "Unknown error"));
+      return false;
+    }
+
+    alert("Transaction deleted successfully!");
+    return true;
+  } catch (err) {
+    console.error(err);
+    alert("Something went wrong");
+    return false;
+  }
+};

@@ -2,7 +2,7 @@ import sqlite3
 import os
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) 
-DB_PATH = os.path.join(BASE_DIR, "finance.db")
+DB_PATH = os.path.join(BASE_DIR, "example.db")
 
 schema = """
 PRAGMA foreign_keys = ON;
@@ -40,10 +40,9 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE TABLE IF NOT EXISTS budgets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     category_id INTEGER NOT NULL,
-    month INTEGER NOT NULL CHECK (month >= 1 AND month <= 12),
+    month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
     year INTEGER NOT NULL,
     limit_amount REAL NOT NULL,
-    spent REAL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(category_id, month, year),
     FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE CASCADE

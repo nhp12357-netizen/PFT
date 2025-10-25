@@ -14,7 +14,7 @@ const DeleteAccount = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/accounts/${id}`);
+        const res = await fetch(`http://127.0.0.1:5000/api/accounts/${id}`);
         if (!res.ok) throw new Error("Account not found");
         const accData = await res.json();
         setAccount(accData);
@@ -40,8 +40,8 @@ const DeleteAccount = () => {
     if (!confirmed) return;
 
     const res = await deleteAccount(id);
-    if (res.success || res.message) {
-      alert("Account deleted successfully!");
+    if (res.message) {
+      alert(res.message);
       navigate("/accounts");
     } else {
       alert(res.error || "Failed to delete account.");
@@ -60,12 +60,18 @@ const DeleteAccount = () => {
       <p><strong>Linked Transactions:</strong> {transactions.length}</p>
 
       {transactions.length === 0 && (
-        <button onClick={handleDelete} style={{ background: "red", color: "white", padding: "10px 20px" }}>
+        <button
+          onClick={handleDelete}
+          style={{ background: "red", color: "white", padding: "10px 20px", marginRight: "10px" }}
+        >
           Confirm Delete
         </button>
       )}
 
-      <button onClick={() => navigate("/accounts")} style={{ marginLeft: "10px", padding: "10px 20px" }}>
+      <button
+        onClick={() => navigate("/accounts")}
+        style={{ padding: "10px 20px" }}
+      >
         Cancel
       </button>
     </div>

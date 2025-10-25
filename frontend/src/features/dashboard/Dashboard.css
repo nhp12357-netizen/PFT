@@ -182,10 +182,6 @@ body {
   font-size: 13px;
   color: var(--text-secondary);
 }
-.anomaly {
-  color: var(--error);
-  font-weight: 600;
-}
 
 /* Budget Alerts */
 .budget-list {
