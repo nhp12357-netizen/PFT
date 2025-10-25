@@ -11,8 +11,8 @@ function Transactions() {
   const [categories, setCategories] = useState([]);
   const [selectedAccount, setSelectedAccount] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedMonth, setSelectedMonth] = useState(""); // YYYY-MM
   const [search, setSearch] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState(""); // ✅ Month filter
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -20,9 +20,9 @@ function Transactions() {
     fetchAccounts();
     fetchCategories();
     fetchTransactions();
-  }, [accountId, selectedAccount, selectedCategory]);
+  }, [accountId, selectedAccount, selectedCategory, selectedMonth]);
 
-  // === Fetch all accounts ===
+  // === Fetch accounts ===
   const fetchAccounts = async () => {
     try {
       const res = await fetch("http://127.0.0.1:5000/api/accounts");
@@ -33,7 +33,7 @@ function Transactions() {
     }
   };
 
-  // === Fetch all categories ===
+  // === Fetch categories ===
   const fetchCategories = async () => {
     try {
       const res = await fetch("http://127.0.0.1:5000/api/categories");
@@ -44,7 +44,7 @@ function Transactions() {
     }
   };
 
-  // === Fetch filtered transactions ===
+  // === Fetch transactions ===
   const fetchTransactions = async () => {
     setLoading(true);
     setError("");
@@ -67,9 +67,10 @@ function Transactions() {
         params.append("description", search.trim());
       }
 
-      // ✅ Add month filter
       if (selectedMonth) {
-        params.append("month", selectedMonth); // send "YYYY-MM" to backend
+        const [year, month] = selectedMonth.split("-");
+        params.append("year", year);
+        params.append("month", month.padStart(2, "0")); // ensure 2 digits
       }
 
       url += `?${params.toString()}`;
@@ -85,7 +86,7 @@ function Transactions() {
     setLoading(false);
   };
 
-  // === Delete Transaction ===
+  // === Delete transaction ===
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this transaction?")) return;
 
@@ -103,10 +104,8 @@ function Transactions() {
 
   return (
     <div className={styles.container}>
-      {/* === Header === */}
       <div className="header">PERSONAL FINANCE TRACKER</div>
 
-      {/* === Navigation === */}
       <div className="nav">
         <a href="/" className="nav-item">Dashboard</a>
         <a href="/transactions" className="nav-item active">Transactions</a>
@@ -115,7 +114,6 @@ function Transactions() {
         <a href="/reports" className="nav-item">Reports</a>
       </div>
 
-      {/* === Page Header === */}
       <div className={styles.header}>
         <h2>Transactions</h2>
         <div>
@@ -143,9 +141,7 @@ function Transactions() {
         >
           <option value="all">All Accounts</option>
           {accounts.map((acc) => (
-            <option key={acc.id} value={acc.id}>
-              {acc.name}
-            </option>
+            <option key={acc.id} value={acc.id}>{acc.name}</option>
           ))}
         </select>
 
@@ -155,13 +151,11 @@ function Transactions() {
         >
           <option value="all">All Categories</option>
           {categories.map((cat) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.name}
-            </option>
+            <option key={cat.id} value={cat.id}>{cat.name}</option>
           ))}
         </select>
 
-        {/* ✅ Month Picker */}
+        {/* Month Picker */}
         <input
           type="month"
           value={selectedMonth}
@@ -174,6 +168,7 @@ function Transactions() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+
         <button onClick={fetchTransactions}>🔍 Search</button>
       </div>
 
@@ -202,36 +197,24 @@ function Transactions() {
                   <td>{tx.description}</td>
                   <td>{tx.category || "-"}</td>
                   <td>{tx.account_name || "-"}</td>
-                  <td
-                    className={
-                      tx.transaction_type === "INCOME"
-                        ? styles.income
-                        : styles.expense
-                    }
-                  >
+                  <td className={tx.transaction_type === "INCOME" ? styles.income : styles.expense}>
                     {tx.transaction_type === "INCOME" ? "+" : "-"}${tx.amount.toFixed(2)}
                   </td>
                   <td>
                     <button
                       className={styles.editBtn}
                       onClick={() => navigate(`/transactions/edit/${tx.id}`)}
-                    >
-                      ✏ Edit
-                    </button>
+                    >✏ Edit</button>
                     <button
                       className={styles.deleteBtn}
                       onClick={() => handleDelete(tx.id)}
-                    >
-                      🗑 Delete
-                    </button>
+                    >🗑 Delete</button>
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="6" style={{ textAlign: "center" }}>
-                  No transactions found.
-                </td>
+                <td colSpan="6" style={{ textAlign: "center" }}>No transactions found.</td>
               </tr>
             )}
           </tbody>

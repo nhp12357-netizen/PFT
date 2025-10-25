@@ -36,16 +36,18 @@ const DeleteAccount = () => {
       return;
     }
 
-    const confirmed = window.confirm("Are you sure you want to delete this account?");
-    if (!confirmed) return;
+    const confirmDelete = window.confirm("Are you sure you want to delete?");
+    if (!confirmDelete) return;
 
-    const res = await deleteAccount(id);
-    if (res.message) {
-      alert(res.message);
-      navigate("/accounts");
-    } else {
-      alert(res.error || "Failed to delete account.");
+    const response = await deleteAccount(id);
+
+    // If no error → navigate immediately
+    if (!response.error) {
+      navigate("/accounts", { replace: true }); // ✅ Auto refresh + no back button issue
+      return;
     }
+
+    alert(response.error);
   };
 
   if (loading) return <p>Loading...</p>;
@@ -56,22 +58,19 @@ const DeleteAccount = () => {
       <h2>Delete Account</h2>
       <p><strong>Name:</strong> {account.name}</p>
       <p><strong>Type:</strong> {account.type}</p>
-      <p><strong>Balance:</strong> ${account.current_balance.toFixed(2)}</p>
+      <p><strong>Balance:</strong> ₹{account.current_balance.toFixed(2)}</p>
       <p><strong>Linked Transactions:</strong> {transactions.length}</p>
 
       {transactions.length === 0 && (
         <button
           onClick={handleDelete}
-          style={{ background: "red", color: "white", padding: "10px 20px", marginRight: "10px" }}
+          style={{ background: "red", color: "white", padding: "10px 20px" }}
         >
           Confirm Delete
         </button>
       )}
 
-      <button
-        onClick={() => navigate("/accounts")}
-        style={{ padding: "10px 20px" }}
-      >
+      <button onClick={() => navigate("/accounts")} style={{ padding: "10px 20px" }}>
         Cancel
       </button>
     </div>

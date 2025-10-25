@@ -13,21 +13,18 @@ export async function fetchAccounts() {
 }
 
 // === Delete an account ===
+
 export async function deleteAccount(accountId) {
   try {
-    const res = await fetch(`${API_BASE}/accounts/${accountId}`, {
-      method: "DELETE",
-    });
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || `Failed to delete account: ${res.status}`);
-    }
-    return await res.json();
+    const res = await fetch(`${API_BASE}/accounts/${accountId}`, { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Failed to delete");
+    return { success: true };
   } catch (err) {
-    console.error("Error deleting account:", err);
     return { success: false, error: err.message };
   }
 }
+
 
 // === Get transactions for a specific account ===
 export async function getTransactionsByAccount(accountId) {

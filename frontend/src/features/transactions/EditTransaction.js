@@ -1,132 +1,270 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
-function EditTransaction() {
-  const { id } = useParams(); // transaction ID from URL
+const EditTransaction = () => {
+  const { id } = useParams();
   const navigate = useNavigate();
 
-  const [form, setForm] = useState({
+  const [transaction, setTransaction] = useState({
     date: "",
     description: "",
     amount: "",
+    transaction_type: "EXPENSE",
     account_id: "",
     category_id: "",
-    transaction_type: "EXPENSE",
   });
 
   const [accounts, setAccounts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // === Fetch transaction details, accounts, categories ===
+  // ===============================
+  // Fetch Transaction, Accounts, and Categories
+  // ===============================
   useEffect(() => {
-    fetchTransaction();
-    fetchAccounts();
-    fetchCategories();
-  }, []);
+    const fetchData = async () => {
+      try {
+        // 1️⃣ Fetch transaction details by ID
+        const txnRes = await fetch(`http://127.0.0.1:5000/api/transactions/${id}`);
+        if (!txnRes.ok) throw new Error("Failed to load transaction");
+        const txnData = await txnRes.json();
+        setTransaction(txnData);
 
-  const fetchTransaction = async () => {
-    try {
-      const res = await fetch(`http://127.0.0.1:5000/api/transactions?id=${id}`);
-      const data = await res.json();
-      const tx = data.find((item) => item.id === Number(id)); 
+        // 2️⃣ Fetch accounts and categories
+        const [accRes, catRes] = await Promise.all([
+          fetch("http://127.0.0.1:5000/api/accounts"),
+          fetch("http://127.0.0.1:5000/api/categories"),
+        ]);
 
-      if (tx) {
-        setForm({
-          date: tx.date,
-          description: tx.description,
-          amount: tx.amount,
-          account_id: tx.account_id,
-          category_id: tx.category_id,
-          transaction_type: tx.transaction_type,
-        });
+        const accData = await accRes.json();
+        const catData = await catRes.json();
+
+        setAccounts(accData);
+        setCategories(catData);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    } catch (err) {
-      console.error("Failed to fetch transaction:", err);
-      setLoading(false);
-    }
-  };
+    };
 
-  const fetchAccounts = async () => {
-    const res = await fetch("http://127.0.0.1:5000/api/accounts");
-    setAccounts(await res.json());
-  };
+    fetchData();
+  }, [id]);
 
-  const fetchCategories = async () => {
-    const res = await fetch("http://127.0.0.1:5000/api/categories");
-    setCategories(await res.json());
-  };
-
-  // === Handle Input Change ===
+  // ===============================
+  // Handle Input Change
+  // ===============================
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setTransaction({
+      ...transaction,
+      [e.target.name]: e.target.value,
+    });
   };
 
-  // === Submit Edited Data ===
+  // ===============================
+  // Handle Form Submit
+  // ===============================
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     try {
       const res = await fetch(`http://127.0.0.1:5000/api/transactions/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(transaction),
       });
 
-      if (!res.ok) throw new Error("Failed to update");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Update failed");
 
-      alert("Transaction updated!");
-      navigate("/transactions"); // Redirect back
+      alert("✅ Transaction updated successfully!");
+      navigate("/transactions");
     } catch (err) {
-      console.error(err);
-      alert("Update failed!");
+      alert("❌ Error: " + err.message);
     }
   };
 
-  if (loading) return <p>Loading...</p>;
+  // ===============================
+  // Loading & Error States
+  // ===============================
+  if (loading) return <p>Loading transaction...</p>;
+  if (error) return <p style={{ color: "red" }}>Error: {error}</p>;
 
+  // ===============================
+  // Render Form
+  // ===============================
   return (
-    <div style={{ maxWidth: "600px", margin: "auto" }}>
-      <h2>Edit Transaction</h2>
-      <form onSubmit={handleSubmit}>
-        <label>Date:</label>
-        <input type="date" name="date" value={form.date} onChange={handleChange} required />
+    <div style={styles.container}>
+      <h2 style={styles.heading}>Edit Transaction</h2>
 
-        <label>Description:</label>
-        <input type="text" name="description" value={form.description} onChange={handleChange} required />
+      <form onSubmit={handleSubmit} style={styles.form}>
+        {/* Date */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Date:</label>
+          <input
+            type="date"
+            name="date"
+            value={transaction.date}
+            onChange={handleChange}
+            required
+            style={styles.input}
+          />
+        </div>
 
-        <label>Amount:</label>
-        <input type="number" name="amount" value={form.amount} onChange={handleChange} required />
+        {/* Description */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Description:</label>
+          <input
+            type="text"
+            name="description"
+            value={transaction.description}
+            onChange={handleChange}
+            required
+            style={styles.input}
+          />
+        </div>
 
-        <label>Transaction Type:</label>
-        <select name="transaction_type" value={form.transaction_type} onChange={handleChange}>
-          <option value="INCOME">Income</option>
-          <option value="EXPENSE">Expense</option>
-        </select>
+        {/* Amount */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Amount:</label>
+          <input
+            type="number"
+            name="amount"
+            value={transaction.amount}
+            onChange={handleChange}
+            required
+            style={styles.input}
+          />
+        </div>
 
-        <label>Account:</label>
-        <select name="account_id" value={form.account_id} onChange={handleChange} required>
-          {accounts.map((acc) => (
-            <option key={acc.id} value={acc.id}>
-              {acc.name}
-            </option>
-          ))}
-        </select>
+        {/* Transaction Type */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Transaction Type:</label>
+          <select
+            name="transaction_type"
+            value={transaction.transaction_type}
+            onChange={handleChange}
+            style={styles.select}
+          >
+            <option value="INCOME">Income</option>
+            <option value="EXPENSE">Expense</option>
+          </select>
+        </div>
 
-        <label>Category:</label>
-        <select name="category_id" value={form.category_id} onChange={handleChange} required>
-          {categories.map((cat) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.name}
-            </option>
-          ))}
-        </select>
+        {/* Account */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Account:</label>
+          <select
+            name="account_id"
+            value={transaction.account_id}
+            onChange={handleChange}
+            style={styles.select}
+          >
+            {accounts.map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {acc.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-        <button type="submit" style={{ marginTop: "10px" }}>Save Changes</button>
-        <button type="button" onClick={() => navigate("/transactions")} style={{ marginLeft: "10px" }}>Cancel</button>
+        {/* Category */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Category:</label>
+          <select
+            name="category_id"
+            value={transaction.category_id}
+            onChange={handleChange}
+            style={styles.select}
+          >
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Buttons */}
+        <div style={styles.buttonContainer}>
+          <button type="submit" style={styles.saveButton}>
+            💾 Save Changes
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/transactions")}
+            style={styles.cancelButton}
+          >
+            ❌ Cancel
+          </button>
+        </div>
       </form>
     </div>
   );
-}
+};
+
+// ===============================
+// Inline Styles
+// ===============================
+const styles = {
+  container: {
+    padding: "20px",
+    maxWidth: "500px",
+    margin: "auto",
+    background: "#f9f9f9",
+    borderRadius: "8px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+  },
+  heading: {
+    textAlign: "center",
+    marginBottom: "20px",
+  },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+  },
+  formGroup: {
+    marginBottom: "12px",
+  },
+  label: {
+    display: "block",
+    marginBottom: "5px",
+    fontWeight: "bold",
+  },
+  input: {
+    width: "100%",
+    padding: "8px",
+    border: "1px solid #ccc",
+    borderRadius: "4px",
+  },
+  select: {
+    width: "100%",
+    padding: "8px",
+    border: "1px solid #ccc",
+    borderRadius: "4px",
+  },
+  buttonContainer: {
+    display: "flex",
+    justifyContent: "space-between",
+    marginTop: "15px",
+  },
+  saveButton: {
+    background: "green",
+    color: "white",
+    border: "none",
+    padding: "10px 20px",
+    borderRadius: "4px",
+    cursor: "pointer",
+  },
+  cancelButton: {
+    background: "gray",
+    color: "white",
+    border: "none",
+    padding: "10px 20px",
+    borderRadius: "4px",
+    cursor: "pointer",
+  },
+};
 
 export default EditTransaction;

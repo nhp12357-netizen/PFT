@@ -274,6 +274,7 @@ def delete_account(id):
     return jsonify({"message": "Account deleted successfully"}), 200
 
 
+
 @app.route("/api/accounts-with-balance", methods=["GET"])
 def get_accounts_with_balance():
     conn = get_db_connection()
@@ -311,18 +312,18 @@ def get_accounts_with_balance():
     return jsonify(accounts)
 
 
-
 # === GET ALL TRANSACTIONS WITH FILTERS ===
 @app.route("/api/transactions", methods=["GET"])
 def get_transactions():
     account_id = request.args.get("accountId")
     category_id = request.args.get("categoryId")
-    description = request.args.get("description")  # search by description
-    month = request.args.get("month")  # ✅ format: "YYYY-MM"
-
+    description = request.args.get("description")  
+    year = request.args.get("year")                
+    month = request.args.get("month")
+    
     conn = get_db_connection()
     cursor = conn.cursor()
-
+    
     # Base query
     query = """
         SELECT 
@@ -340,41 +341,42 @@ def get_transactions():
         WHERE 1=1
     """
     params = []
-
+    
     # Apply account filter if provided
     if account_id:
         query += " AND t.account_id = ?"
         params.append(account_id)
-
+    
     # Apply category filter if provided
     if category_id:
         query += " AND t.category_id = ?"
         params.append(category_id)
-
+    
     # Apply description filter
     if description:
         query += " AND t.description LIKE ?"
         params.append(f"%{description}%")
-
-    # ✅ Apply month filter if provided (format: YYYY-MM)
+    
+    #Apply description for yearif year:
+    if year:
+         query += " AND strftime('%Y', t.date) = ?"
+         params.append(year)
+    #Apply description for yearif month:
     if month:
-        try:
-            year, month_num = month.split("-")
-            # SQLite-compatible filtering (using substr)
-            query += " AND strftime('%Y', t.date) = ? AND strftime('%m', t.date) = ?"
-            params.extend([year, month_num])
-        except ValueError:
-            return jsonify({"error": "Invalid month format. Expected YYYY-MM"}), 400
+       query += " AND strftime('%m', t.date) = ?"
+       params.append(month.zfill(2))
 
-    # Sort newest first
+    
     query += " ORDER BY t.date DESC"
-
+    
     cursor.execute(query, params)
     rows = cursor.fetchall()
     conn.close()
-
+    
     transactions = [dict(row) for row in rows]
     return jsonify(transactions)
+
+
 
 
 
@@ -438,34 +440,76 @@ def add_transaction():
 
     return jsonify({"message": "Transaction added successfully", "id": new_id}), 201
 
-# edit transaction
-@app.route('/api/transactions/<int:transaction_id>', methods=['PUT', 'OPTIONS'])
-def update_transaction(transaction_id):
-    if request.method == "OPTIONS":
-        return '', 200  # Preflight CORS OK
 
+
+# === GET SINGLE TRANSACTION BY ID ===
+@app.route("/api/transactions/<int:id>", methods=["GET"])
+def get_transaction_by_id(id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    txn = cursor.execute("""
+        SELECT 
+            t.id,
+            t.date,
+            t.description,
+            t.amount,
+            t.transaction_type,
+            t.account_id,
+            t.category_id,
+            a.name AS account_name,
+            c.name AS category_name
+        FROM transactions t
+        JOIN accounts a ON t.account_id = a.id
+        JOIN categories c ON t.category_id = c.id
+        WHERE t.id = ?
+    """, (id,)).fetchone()
+    conn.close()
+
+    if txn is None:
+        return jsonify({"error": "Transaction not found"}), 404
+
+    return jsonify(dict(txn)), 200
+
+
+
+# === UPDATE A TRANSACTION ===
+@app.route("/api/transactions/<int:id>", methods=["PUT"])
+def update_transaction(id):
     data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid input"}), 400
+
+    amount = data.get("amount")
+    category_id = data.get("category_id")
+    description = data.get("description")
+    date = data.get("date")
+    transaction_type = data.get("transaction_type")
+
+    if not all([amount, category_id, date, transaction_type]):
+        return jsonify({"error": "Missing required fields"}), 400
+
     conn = get_db_connection()
     cursor = conn.cursor()
 
     # Check if transaction exists
-    tx = cursor.execute("SELECT * FROM transactions WHERE id = ?", (transaction_id,)).fetchone()
-    if tx is None:
+    existing = cursor.execute("SELECT * FROM transactions WHERE id = ?", (id,)).fetchone()
+    if not existing:
         conn.close()
         return jsonify({"error": "Transaction not found"}), 404
 
+    # Update transaction
     cursor.execute("""
         UPDATE transactions
-        SET date = ?, description = ?, amount = ?, transaction_type = ?, account_id = ?, category_id = ?
+        SET amount = ?, category_id = ?, description = ?, date = ?, transaction_type = ?
         WHERE id = ?
-    """, (
-        data['date'], data['description'], data['amount'],
-        data['transaction_type'], data['account_id'], data['category_id'], transaction_id
-    ))
-
+    """, (amount, category_id, description, date, transaction_type, id))
+    
     conn.commit()
     conn.close()
-    return jsonify({"message": "Transaction updated successfully"})
+
+    return jsonify({"message": "Transaction updated successfully"}), 200
+
+
 
 
 # delete transaction
@@ -495,9 +539,18 @@ def delete_transaction(id):
 @app.route("/api/dashboard", methods=["GET"])
 def dashboard():
     conn = get_db_connection()
+
+    # Total balance
     total_balance_row = conn.execute("SELECT SUM(initial_balance) AS total FROM accounts").fetchone()
     total_balance = total_balance_row["total"] or 0
 
+    # Total income and total expense (ALL TIME)
+    total_income_row = conn.execute("SELECT SUM(amount) AS total FROM transactions WHERE transaction_type='INCOME'").fetchone()
+    total_expense_row = conn.execute("SELECT SUM(amount) AS total FROM transactions WHERE transaction_type='EXPENSE'").fetchone()
+    total_income = total_income_row["total"] or 0
+    total_expense = abs(total_expense_row["total"] or 0)
+
+    # Monthly income and expense
     monthly_income_row = conn.execute("""
         SELECT SUM(amount) AS total FROM transactions
         WHERE transaction_type='INCOME' AND strftime('%m', date) = strftime('%m', 'now')
@@ -506,11 +559,13 @@ def dashboard():
         SELECT SUM(amount) AS total FROM transactions
         WHERE transaction_type='EXPENSE' AND strftime('%m', date) = strftime('%m', 'now')
     """).fetchone()
-
     monthly_income = monthly_income_row["total"] or 0
     monthly_expense = abs(monthly_expense_row["total"] or 0)
+
+    # Savings rate (monthly)
     savings_rate = round((monthly_income - monthly_expense) / monthly_income * 100, 1) if monthly_income else 0
 
+    # Recent transactions
     recent_transactions = conn.execute("""
         SELECT t.description AS name, t.amount, c.name AS category, t.is_anomaly
         FROM transactions t
@@ -518,9 +573,9 @@ def dashboard():
         ORDER BY t.date DESC
         LIMIT 5
     """).fetchall()
-
     recent_transactions_list = [dict(tx) for tx in recent_transactions]
 
+    # Budget alerts
     budget_alerts_rows = conn.execute("""
         SELECT b.id, c.name AS name, b.limit_amount, 
                SUM(t.amount) AS spent
@@ -532,7 +587,6 @@ def dashboard():
         WHERE b.month = strftime('%m', 'now')
         GROUP BY b.id
     """).fetchall()
-
     budget_alerts_list = []
     for row in budget_alerts_rows:
         spent = row["spent"] or 0
@@ -554,13 +608,14 @@ def dashboard():
 
     return jsonify({
         "total_balance": total_balance,
+        "total_income": total_income,
+        "total_expense": total_expense,
         "monthly_income": monthly_income,
         "monthly_expense": monthly_expense,
         "savings_rate": savings_rate,
         "recent_transactions": recent_transactions_list,
         "budget_alerts": budget_alerts_list
     })
-
 
 @app.route("/api/budgets", methods=["GET"])
 def get_budgets():
