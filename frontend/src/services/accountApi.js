@@ -25,8 +25,6 @@ export async function deleteAccount(accountId) {
   }
 }
 
-
-// === Get transactions for a specific account ===
 export async function getTransactionsByAccount(accountId) {
   try {
     const res = await fetch(`${API_BASE}/transactions?accountId=${accountId}`);

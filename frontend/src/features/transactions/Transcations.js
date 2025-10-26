@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import styles from "./Transactions.module.css";
+import styles from "./Transactions.modules.css";
 
 function Transactions() {
   const { accountId } = useParams();
@@ -169,7 +169,7 @@ function Transactions() {
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        <button onClick={fetchTransactions}>🔍 Search</button>
+        <button onClick={fetchTransactions}>Search</button>
       </div>
 
       {/* === Transactions Table === */}
@@ -202,13 +202,13 @@ function Transactions() {
                   </td>
                   <td>
                     <button
-                      className={styles.editBtn}
+                      className="transactionBtn"
                       onClick={() => navigate(`/transactions/edit/${tx.id}`)}
-                    >✏ Edit</button>
+                    >Edit</button>
                     <button
-                      className={styles.deleteBtn}
+                      className="transactionBtn"
                       onClick={() => handleDelete(tx.id)}
-                    >🗑 Delete</button>
+                    >Delete</button>
                   </td>
                 </tr>
               ))

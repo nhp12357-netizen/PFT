@@ -27,7 +27,7 @@ const Accounts = () => {
 
   const handleAddAccount = () => navigate("/accounts/add");
   const handleEdit = (accountId) => navigate(`/accounts/edit/${accountId}`);
-  const viewTransactions = (accountId) => navigate(`/transactions?accountId=${accountId}`);
+
 
   const handleDelete = async (accountId) => {
     const transactions = await getTransactionsByAccount(accountId);
@@ -100,7 +100,6 @@ const Accounts = () => {
                   <td style={{ textAlign: "right" }}>${acc.current_balance}</td>
                   <td>
                     <button className="account-btn" onClick={() => handleEdit(acc.id)}>Edit</button>
-                    <button className="account-btn" onClick={() => viewTransactions(acc.id)}>View</button>
                     <button className="account-btn delete" onClick={() => handleDelete(acc.id)}>Delete</button>
                   </td>
                 </tr>

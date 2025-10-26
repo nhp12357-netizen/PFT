@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import styles from "./Transactions.module.css";
+import styles from "./Transactions.modules.css";
 
 function AddTransaction({ onTransactionAdded }) {
   const navigate = useNavigate();

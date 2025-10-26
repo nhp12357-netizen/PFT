@@ -12,7 +12,7 @@ CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"])
 
 # === DATABASE CONFIGURATION ===
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(BASE_DIR, "example.db")
+DB_PATH = os.path.join(BASE_DIR, "finance.db")
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
@@ -34,12 +34,6 @@ def dashboard():
     # Total balance
     total_balance_row = conn.execute("SELECT SUM(initial_balance) AS total FROM accounts").fetchone()
     total_balance = total_balance_row["total"] or 0
-
-    # Total income and total expense (ALL TIME)
-    total_income_row = conn.execute("SELECT SUM(amount) AS total FROM transactions WHERE transaction_type='INCOME'").fetchone()
-    total_expense_row = conn.execute("SELECT SUM(amount) AS total FROM transactions WHERE transaction_type='EXPENSE'").fetchone()
-    total_income = total_income_row["total"] or 0
-    total_expense = abs(total_expense_row["total"] or 0)
 
     # Monthly income and expense
     monthly_income_row = conn.execute("""
@@ -99,8 +93,6 @@ def dashboard():
 
     return jsonify({
         "total_balance": total_balance,
-        "total_income": total_income,
-        "total_expense": total_expense,
         "monthly_income": monthly_income,
         "monthly_expense": monthly_expense,
         "savings_rate": savings_rate,
@@ -167,17 +159,17 @@ def get_transactions():
     """
     params = []
     
-    # Apply account filter if provided
+    # Apply account filter
     if account_id:
         query += " AND t.account_id = ?"
         params.append(account_id)
     
-    # Apply category filter if provided
+    # Apply category filter 
     if category_id:
         query += " AND t.category_id = ?"
         params.append(category_id)
     
-    # Apply description filter
+    # Apply description 
     if description:
         query += " AND t.description LIKE ?"
         params.append(f"%{description}%")
@@ -226,14 +218,14 @@ def add_transaction():
     cursor = conn.cursor()
 
     try:
-        # Determine transaction type from category if not provided
+        
         if not transaction_type:
             cursor.execute("SELECT type FROM categories WHERE id = ?", (category_id,))
             row = cursor.fetchone()
             if row:
                 transaction_type = row["type"]
             else:
-                transaction_type = "EXPENSE"  # default fallback
+                transaction_type = "EXPENSE"  # default
 
         if transaction_type == "TRANSFER":
             if not target_account_id:
