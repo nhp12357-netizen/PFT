@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import styles from "./Transactions.modules.css";
+import styles from "./Transactions.module.css";
 
 function Transactions() {
   const { accountId } = useParams();
@@ -11,6 +11,7 @@ function Transactions() {
   const [categories, setCategories] = useState([]);
   const [selectedAccount, setSelectedAccount] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedYear, setSelectedYear] = useState(""); // ✅ New state for year filter
   const [selectedMonth, setSelectedMonth] = useState(""); // YYYY-MM
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,7 +21,7 @@ function Transactions() {
     fetchAccounts();
     fetchCategories();
     fetchTransactions();
-  }, [accountId, selectedAccount, selectedCategory, selectedMonth]);
+  }, [accountId, selectedAccount, selectedCategory, selectedMonth, selectedYear]);
 
   // === Fetch accounts ===
   const fetchAccounts = async () => {
@@ -53,24 +54,30 @@ function Transactions() {
       let url = "http://127.0.0.1:5000/api/transactions";
       const params = new URLSearchParams();
 
+      // Filter by account
       if (accountId && selectedAccount === "all") {
         params.append("accountId", accountId);
       } else if (selectedAccount !== "all") {
         params.append("accountId", selectedAccount);
       }
 
+      // Filter by category
       if (selectedCategory !== "all") {
         params.append("categoryId", selectedCategory);
       }
 
+      // Filter by description
       if (search.trim()) {
         params.append("description", search.trim());
       }
 
+      // ✅ Filter by year or month
       if (selectedMonth) {
         const [year, month] = selectedMonth.split("-");
         params.append("year", year);
-        params.append("month", month.padStart(2, "0")); // ensure 2 digits
+        params.append("month", month.padStart(2, "0"));
+      } else if (selectedYear) {
+        params.append("year", selectedYear);
       }
 
       url += `?${params.toString()}`;
@@ -135,6 +142,7 @@ function Transactions() {
 
       {/* === Filters === */}
       <div className={styles.filters}>
+        {/* Account Filter */}
         <select
           value={selectedAccount}
           onChange={(e) => setSelectedAccount(e.target.value)}
@@ -145,6 +153,7 @@ function Transactions() {
           ))}
         </select>
 
+        {/* Category Filter */}
         <select
           value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
@@ -155,13 +164,26 @@ function Transactions() {
           ))}
         </select>
 
-        {/* Month Picker */}
+        {/* ✅ Year Filter */}
+        <select
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(e.target.value)}
+        >
+          <option value="">All Years</option>
+          <option value="2025">2025</option>
+          <option value="2024">2024</option>
+          <option value="2023">2023</option>
+          <option value="2022">2022</option>
+        </select>
+
+        {/* Month Filter */}
         <input
           type="month"
           value={selectedMonth}
           onChange={(e) => setSelectedMonth(e.target.value)}
         />
 
+        {/* Search Filter */}
         <input
           type="text"
           placeholder="Search by Description..."
@@ -169,7 +191,7 @@ function Transactions() {
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        <button onClick={fetchTransactions}>Search</button>
+        <button onClick={fetchTransactions}>🔍 Search</button>
       </div>
 
       {/* === Transactions Table === */}
@@ -197,24 +219,37 @@ function Transactions() {
                   <td>{tx.description}</td>
                   <td>{tx.category || "-"}</td>
                   <td>{tx.account_name || "-"}</td>
-                  <td className={tx.transaction_type === "INCOME" ? styles.income : styles.expense}>
-                    {tx.transaction_type === "INCOME" ? "+" : "-"}${tx.amount.toFixed(2)}
+                  <td
+                    className={
+                      tx.transaction_type === "INCOME"
+                        ? styles.income
+                        : styles.expense
+                    }
+                  >
+                    {tx.transaction_type === "INCOME" ? "+" : "-"}$
+                    {tx.amount.toFixed(2)}
                   </td>
                   <td>
                     <button
-                      className="transactionBtn"
+                      className={styles.editBtn}
                       onClick={() => navigate(`/transactions/edit/${tx.id}`)}
-                    >Edit</button>
+                    >
+                      ✏ Edit
+                    </button>
                     <button
-                      className="transactionBtn"
+                      className={styles.deleteBtn}
                       onClick={() => handleDelete(tx.id)}
-                    >Delete</button>
+                    >
+                      🗑 Delete
+                    </button>
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="6" style={{ textAlign: "center" }}>No transactions found.</td>
+                <td colSpan="6" style={{ textAlign: "center" }}>
+                  No transactions found.
+                </td>
               </tr>
             )}
           </tbody>

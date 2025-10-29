@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import styles from "./Transactions.modules.css";
+import styles from "./Transactions.module.css";
 
 function AddTransaction({ onTransactionAdded }) {
   const navigate = useNavigate();
@@ -17,39 +17,67 @@ function AddTransaction({ onTransactionAdded }) {
     category_id: "",
   });
 
-  // Fetch accounts and categories
+  //Fetch accounts, default account, and categories
   useEffect(() => {
-    fetch("http://127.0.0.1:5000/api/accounts")
-      .then((res) => res.json())
-      .then(setAccounts)
-      .catch((err) => console.error("Failed to load accounts:", err));
+    const loadData = async () => {
+      try {
+        // Fetch all accounts
+        const accRes = await fetch("http://127.0.0.1:5000/api/accounts");
+        const allAccounts = await accRes.json();
 
-    fetch("http://127.0.0.1:5000/api/categories")
-      .then((res) => res.json())
-      .then(setCategories)
-      .catch((err) => console.error("Failed to load categories:", err));
+        // Fetch default account
+        const defRes = await fetch("http://127.0.0.1:5000/api/accounts/default");
+        const defaultAccount = defRes.ok ? await defRes.json() : null;
+
+        let sortedAccounts = allAccounts;
+
+        // Move default account to top if it exists
+        if (defaultAccount) {
+          sortedAccounts = [
+            defaultAccount,
+            ...allAccounts.filter((a) => a.id !== defaultAccount.id),
+          ];
+        }
+
+        setAccounts(sortedAccounts);
+
+        // Auto-select the default or first account
+        setFormData((prev) => ({
+          ...prev,
+          account_id: defaultAccount
+            ? defaultAccount.id
+            : allAccounts[0]?.id || "",
+        }));
+
+        // Fetch categories
+        const catRes = await fetch("http://127.0.0.1:5000/api/categories");
+        const cats = await catRes.json();
+        setCategories(cats);
+      } catch (err) {
+        console.error("Error loading data:", err);
+      }
+    };
+
+    loadData();
   }, []);
 
-  // Suggest category based on description
+  //Suggest category based on description
   useEffect(() => {
     if (formData.description.trim().length < 3) return;
 
     const timeout = setTimeout(async () => {
       try {
-        const res = await fetch(
-          "http://127.0.0.1:5000/api/suggest-category",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ description: formData.description }),
-          }
-        );
+        const res = await fetch("http://127.0.0.1:5000/api/suggest-category", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ description: formData.description }),
+        });
 
         const data = await res.json();
         if (data.suggested_category && data.category_id) {
           setSuggestedCategory(data.suggested_category);
 
-          // Automatically select the category in the dropdown
+          // Auto-select suggested category
           setFormData((prev) => ({
             ...prev,
             category_id: data.category_id,
@@ -63,18 +91,19 @@ function AddTransaction({ onTransactionAdded }) {
     return () => clearTimeout(timeout);
   }, [formData.description]);
 
+  //Handle input changes
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  //Submit form
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Determine transaction type from category
     const selectedCategory = categories.find(
       (cat) => cat.id === parseInt(formData.category_id)
     );
-    const transactionType = selectedCategory?.type || "EXPENSE"; // default to EXPENSE if undefined
+    const transactionType = selectedCategory?.type || "EXPENSE";
 
     const payload = {
       date: formData.date,
@@ -127,7 +156,7 @@ function AddTransaction({ onTransactionAdded }) {
           required
         />
 
-        {/* Display suggested category */}
+        {/*Display suggested category */}
         {suggestedCategory && (
           <p className={styles.suggestionText}>
             💡 Suggested Category: <strong>{suggestedCategory}</strong>
@@ -143,6 +172,7 @@ function AddTransaction({ onTransactionAdded }) {
           required
         />
 
+        {/*Account dropdown — default first, preselected */}
         <select
           name="account_id"
           value={formData.account_id}
@@ -152,11 +182,12 @@ function AddTransaction({ onTransactionAdded }) {
           <option value="">Select Account</option>
           {accounts.map((acc) => (
             <option key={acc.id} value={acc.id}>
-              {acc.name}
+              {acc.name} {acc.is_default ? "⭐" : ""}
             </option>
           ))}
         </select>
 
+        {/* Category dropdown */}
         <select
           name="category_id"
           value={formData.category_id || ""}

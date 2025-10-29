@@ -1,4 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+
+import Login from "./features/login/Login";
+
 import Dashboard from "./features/dashboard/Dashboard";
 
 import Transactions from "./features/transactions/Transcations";
@@ -22,7 +25,7 @@ function App() {
     <Router>
       <Routes>
         {/* Dashboard */}
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
 
         {/* Transactions */}

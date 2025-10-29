@@ -53,9 +53,19 @@ export default function BudgetPage() {
         <a href="/reports" className="nav-item">Reports</a>
       </div>
 
+      {/* 🟢 Month Selector */}
+      <div className="filter-bar">
+        <label>Select Month: </label>
+        <input
+          type="month"
+          value={month}
+          onChange={(e) => setMonth(e.target.value)}
+        />
+      </div>
+
       <div style={{ padding: "16px" }}>
         <button className="btn btn-save" onClick={handleSetBudget}>
-          Set Budget
+          ➕ Set Budget
         </button>
       </div>
 
@@ -79,7 +89,7 @@ export default function BudgetPage() {
                 const pct = b.limit_amount > 0 ? Math.round((b.spent / b.limit_amount) * 100) : 0;
 
                 return (
-                  <tr key={b.id}>
+                  <tr key={b.category_id}>
                     <td>{b.category_name}</td>
                     <td>{formatCurrency(b.limit_amount)}</td>
                     <td>{formatCurrency(b.spent)}</td>
@@ -90,14 +100,18 @@ export default function BudgetPage() {
                       <div className="progress-container">
                         <div
                           className={`progress-bar ${
-                            pct > 100 ? "progress-over" : pct >= 90 ? "progress-warning" : "progress-ok"
+                            pct > 100
+                              ? "progress-over"
+                              : pct >= 90
+                              ? "progress-warning"
+                              : "progress-ok"
                           }`}
                           style={{ width: `${Math.min(100, pct)}%` }}
                         ></div>
                       </div>
                       <div className="percentage">({pct}%)</div>
-                      {pct > 100 && <div className="warning-text warning-over">- OVER BUDGET!</div>}
-                      {pct === 100 && <div className="warning-text warning-at-limit">- AT LIMIT!</div>}
+                      {pct > 100 && <div className="warning-text warning-over">OVER BUDGET!</div>}
+                      {pct === 100 && <div className="warning-text warning-at-limit">AT LIMIT!</div>}
                     </td>
                   </tr>
                 );

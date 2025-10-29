@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchDashboardData } from "../../services/dashboardApi";
-import "./Dashboard.css"; 
+import "./Dashboard.css";
 
 const Dashboard = () => {
   const [data, setData] = useState({
@@ -12,47 +12,70 @@ const Dashboard = () => {
     savings_rate: 0,
     recent_transactions: [],
     budget_alerts: [],
+    accounts: [],
   });
 
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+  const monthNames = [
+    "January","February","March","April","May","June",
+    "July","August","September","October","November","December"
+  ];
+
+  // ✅ Single source of truth for dashboard data
+  const loadDashboardData = async (month = selectedMonth, year = selectedYear) => {
+    try {
+      setLoading(true);
+      const monthYear = `${year}-${String(month).padStart(2, "0")}`;
+
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("No token found");
+
+      const dashboardData = await fetchDashboardData(token, monthYear);
+      if (!dashboardData) throw new Error("Failed to fetch dashboard data");
+
+      // ✅ safely extract and set data
+      setData({
+        total_balance: dashboardData.total_balance ?? 0,
+        total_income: dashboardData.total_income ?? 0,
+        total_expense: dashboardData.total_expense ?? 0,
+        monthly_income: dashboardData.monthly_income ?? 0,
+        monthly_expense: dashboardData.monthly_expense ?? 0,
+        savings_rate: dashboardData.savings_rate ?? 0,
+        recent_transactions: dashboardData.recent_transactions ?? [],
+        budget_alerts: dashboardData.budget_alerts ?? [],
+      });
+
+      // ✅ accounts from backend (ensure it's an array)
+      setAccounts(Array.isArray(dashboardData.accounts) ? dashboardData.accounts : []);
+
+    } catch (err) {
+      console.error("Dashboard error:", err);
+      if (err.message.includes("Unauthorized") || err.message.includes("token")) {
+        localStorage.removeItem("token");
+        window.location.href = "/login";
+      } else {
+        setError(err.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const dashboardData = await fetchDashboardData();
-        if (!dashboardData) throw new Error("Failed to fetch dashboard data");
-        setData({
-          total_balance: dashboardData.total_balance ?? 0,
-          total_income: dashboardData.total_income ?? 0,
-          total_expense: dashboardData.total_expense ?? 0,
-          monthly_income: dashboardData.monthly_income ?? 0,
-          monthly_expense: dashboardData.monthly_expense ?? 0,
-          savings_rate: dashboardData.savings_rate ?? 0,
-          recent_transactions: dashboardData.recent_transactions ?? [],
-          budget_alerts: dashboardData.budget_alerts ?? [],
-        });
+    loadDashboardData(selectedMonth, selectedYear);
+  }, [selectedMonth, selectedYear]);
 
-        const accRes = await fetch("http://127.0.0.1:5000/api/accounts-with-balance");
-        const accData = await accRes.json();
-        setAccounts(accData ?? []);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p style={{ color: "red" }}>{error}</p>;
 
-  if (loading) return <p style={{ padding: "20px" }}>Loading...</p>;
-  if (error) return <p style={{ color: "red", padding: "20px" }}>{error}</p>;
-
-  const totalAccountBalance = accounts.reduce(
-    (sum, acc) => sum + (acc.current_balance ?? 0),
-    0
-  );
+  const totalAccountBalance = Array.isArray(accounts)
+    ? accounts.reduce((sum, acc) => sum + (acc.current_balance ?? 0), 0)
+    : 0;
 
   return (
     <div className="container">
@@ -66,6 +89,30 @@ const Dashboard = () => {
         <a href="/reports" className="nav-item">Reports</a>
       </div>
 
+      {/* Month & Year Selector */}
+      <div className="filter-bar">
+        <label>Month: </label>
+        <select
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+        >
+          {monthNames.map((name, index) => (
+            <option key={index + 1} value={index + 1}>{name}</option>
+          ))}
+        </select>
+
+        <label style={{ marginLeft: "10px" }}>Year: </label>
+        <select
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+        >
+          {[2023, 2024, 2025, 2026].map((yr) => (
+            <option key={yr} value={yr}>{yr}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* KPI Section */}
       <div className="dashboard-grid">
         <div className="kpi-card">
           <h3>TOTAL BALANCE</h3>
@@ -101,6 +148,7 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Accounts Overview */}
       <div className="panel" style={{ marginTop: "30px" }}>
         <div className="panel-header">ACCOUNTS OVERVIEW</div>
         {accounts.length === 0 ? (
@@ -119,8 +167,11 @@ const Dashboard = () => {
                 <tr key={acc.id}>
                   <td>{acc.name}</td>
                   <td>{acc.type}</td>
-                  <td style={{ textAlign: "right" }} className={acc.current_balance >= 0 ? "positive" : "negative"}>
-                    ${ (acc.current_balance ?? 0).toFixed(2) }
+                  <td
+                    style={{ textAlign: "right" }}
+                    className={acc.current_balance >= 0 ? "positive" : "negative"}
+                  >
+                    ${(acc.current_balance ?? 0).toFixed(2)}
                   </td>
                 </tr>
               ))}
@@ -128,13 +179,16 @@ const Dashboard = () => {
             <tfoot>
               <tr>
                 <td colSpan="2"><strong>Total</strong></td>
-                <td style={{ textAlign: "right" }}><strong>${totalAccountBalance.toFixed(2)}</strong></td>
+                <td style={{ textAlign: "right" }}>
+                  <strong>${totalAccountBalance.toFixed(2)}</strong>
+                </td>
               </tr>
             </tfoot>
           </table>
         )}
       </div>
 
+      {/* Recent Transactions + Budget Alerts */}
       <div className="bottom-section">
         <div className="panel">
           <div className="panel-header">RECENT TRANSACTIONS</div>

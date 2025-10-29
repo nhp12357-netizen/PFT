@@ -1,4 +1,5 @@
-const API_BASE = "http://127.0.0.1:5000/api";
+const API_BASE = "http://127.0.0.1:5000/api/accounts";
+
 
 // === Fetch all accounts ===
 export async function fetchAccounts() {
@@ -35,3 +36,23 @@ export async function getTransactionsByAccount(accountId) {
     return [];
   }
 }
+
+
+
+
+// ✅ Set an account as default
+export async function setDefaultAccount(accountId) {
+  const res = await fetch(`${API_BASE}/${accountId}/set_default`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("Failed to set default account");
+  return res.json();
+}
+
+// ✅ Get the default account
+export async function getDefaultAccount() {
+  const res = await fetch(`${API_BASE}/default`);
+  if (!res.ok) throw new Error("Failed to get default account");
+  return res.json();
+}
+

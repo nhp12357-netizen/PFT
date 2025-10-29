@@ -1,33 +1,45 @@
 import React, { useEffect, useState } from "react";
-import { deleteAccount, getTransactionsByAccount } from "../../services/accountApi";
+import { deleteAccount, getTransactionsByAccount, setDefaultAccount, getDefaultAccount } from "../../services/accountApi";
 import { useNavigate } from "react-router-dom";
 import "./Accounts.css";
 
 const Accounts = () => {
   const navigate = useNavigate();
   const [accounts, setAccounts] = useState([]);
+  const [defaultAccount, setDefault] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // ✅ Load accounts with dynamic balance
+  // Load accounts and default account
   useEffect(() => {
-    fetch("http://127.0.0.1:5000/api/accounts-with-balance")
-      .then((res) => res.json())
-      .then((data) => {
-        console.log("Accounts with balance:", data);
-        setAccounts(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setError("Failed to fetch accounts.");
-        setLoading(false);
-      });
+    loadAccounts();
+    loadDefaultAccount();
   }, []);
+
+  const loadAccounts = async () => {
+    try {
+      const res = await fetch("http://127.0.0.1:5000/api/accounts-with-balance");
+      const data = await res.json();
+      setAccounts(data);
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to fetch accounts.");
+      setLoading(false);
+    }
+  };
+
+  const loadDefaultAccount = async () => {
+    try {
+      const data = await getDefaultAccount();
+      setDefault(data);
+    } catch (err) {
+      setDefault(null); // No default set yet
+    }
+  };
 
   const handleAddAccount = () => navigate("/accounts/add");
   const handleEdit = (accountId) => navigate(`/accounts/edit/${accountId}`);
-
 
   const handleDelete = async (accountId) => {
     const transactions = await getTransactionsByAccount(accountId);
@@ -41,10 +53,7 @@ const Accounts = () => {
       const res = await deleteAccount(accountId);
       if (res.success) {
         alert("Account deleted successfully!");
-        // Reload updated balances
-        fetch("http://127.0.0.1:5000/api/accounts-with-balance")
-          .then((res) => res.json())
-          .then((data) => setAccounts(data));
+        loadAccounts();
       } else {
         alert(res.error || "Failed to delete account.");
       }
@@ -54,11 +63,24 @@ const Accounts = () => {
     }
   };
 
+  const handleSetDefault = async (accountId) => {
+    try {
+      await setDefaultAccount(accountId);
+      alert("Account set as default successfully!");
+      loadDefaultAccount();
+      loadAccounts();
+    } catch (err) {
+      console.error("Error setting default:", err);
+      alert("Failed to set default account.");
+    }
+  };
+
   if (error) return <p style={{ color: "red", padding: "20px" }}>{error}</p>;
   if (loading) return <p style={{ padding: "20px" }}>Loading...</p>;
 
-  // ✅ Total of current balances
-  const totalBalance = accounts.reduce((sum, acc) => sum + acc.current_balance, 0);
+  // Total balances
+  const totalInitialBalance = accounts.reduce((sum, acc) => sum + acc.initial_balance, 0);
+  const totalCurrentBalance = accounts.reduce((sum, acc) => sum + acc.current_balance, 0);
 
   return (
     <div className="container">
@@ -94,21 +116,36 @@ const Accounts = () => {
             <tbody>
               {accounts.map((acc) => (
                 <tr key={acc.id}>
-                  <td>{acc.name}</td>
+                  <td>
+                    {acc.name}{" "}
+                    {defaultAccount && defaultAccount.id === acc.id && (
+                      <span className="default-badge">⭐ Default</span>
+                    )}
+                  </td>
                   <td>{acc.type.charAt(0).toUpperCase() + acc.type.slice(1).toLowerCase()}</td>
-                  <td style={{ textAlign: "right" }}>${acc.initial_balance}</td>
-                  <td style={{ textAlign: "right" }}>${acc.current_balance}</td>
+                  <td style={{ textAlign: "right" }}>${acc.initial_balance.toFixed(2)}</td>
+                  <td style={{ textAlign: "right" }}>${acc.current_balance.toFixed(2)}</td>
                   <td>
                     <button className="account-btn" onClick={() => handleEdit(acc.id)}>Edit</button>
                     <button className="account-btn delete" onClick={() => handleDelete(acc.id)}>Delete</button>
+                    <button className="account-btn" onClick={() => handleSetDefault(acc.id)}>
+                      {defaultAccount && defaultAccount.id === acc.id
+                        ? "Default"
+                        : "Set as Default"}
+                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan="3"><strong>Total</strong></td>
-                <td style={{ textAlign: "right" }}><strong>${totalBalance}</strong></td>
+                <td colSpan="2"><strong>Total</strong></td>
+                <td style={{ textAlign: "right" }}>
+                  <strong>${totalInitialBalance.toFixed(2)}</strong>
+                </td>
+                <td style={{ textAlign: "right" }}>
+                  <strong>${totalCurrentBalance.toFixed(2)}</strong>
+                </td>
                 <td></td>
               </tr>
             </tfoot>
