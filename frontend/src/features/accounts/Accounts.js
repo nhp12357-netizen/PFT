@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { deleteAccount, getTransactionsByAccount, setDefaultAccount, getDefaultAccount } from "../../services/accountApi";
+import {
+  deleteAccount,
+  getTransactionsByAccount,
+  setDefaultAccount,
+  getDefaultAccount,
+  fetchAccounts,
+} from "../../services/accountApi";
 import { useNavigate } from "react-router-dom";
 import "./Accounts.css";
 
@@ -18,12 +24,20 @@ const Accounts = () => {
 
   const loadAccounts = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:5000/api/accounts-with-balance");
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://127.0.0.1:5000/api/accounts", {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to fetch accounts");
       setAccounts(data);
       setLoading(false);
     } catch (err) {
-      console.error(err);
+      console.error("❌ Load accounts error:", err);
       setError("Failed to fetch accounts.");
       setLoading(false);
     }
@@ -78,16 +92,21 @@ const Accounts = () => {
   if (error) return <p style={{ color: "red", padding: "20px" }}>{error}</p>;
   if (loading) return <p style={{ padding: "20px" }}>Loading...</p>;
 
-  // Total balances
-  const totalInitialBalance = accounts.reduce((sum, acc) => sum + acc.initial_balance, 0);
-  const totalCurrentBalance = accounts.reduce((sum, acc) => sum + acc.current_balance, 0);
+  const totalInitialBalance = accounts.reduce(
+    (sum, acc) => sum + (acc.initial_balance || 0),
+    0
+  );
+  const totalCurrentBalance = accounts.reduce(
+    (sum, acc) => sum + (acc.current_balance || 0),
+    0
+  );
 
   return (
     <div className="container">
       <div className="header">PERSONAL FINANCE TRACKER</div>
 
       <div className="nav">
-        <a href="/" className="nav-item">Dashboard</a>
+        <a href="/dashboard" className="nav-item">Dashboard</a>
         <a href="/transactions" className="nav-item">Transactions</a>
         <a href="/accounts" className="nav-item active">Accounts</a>
         <a href="/budget" className="nav-item">Budget</a>
@@ -122,13 +141,35 @@ const Accounts = () => {
                       <span className="default-badge">⭐ Default</span>
                     )}
                   </td>
-                  <td>{acc.type.charAt(0).toUpperCase() + acc.type.slice(1).toLowerCase()}</td>
-                  <td style={{ textAlign: "right" }}>${acc.initial_balance.toFixed(2)}</td>
-                  <td style={{ textAlign: "right" }}>${acc.current_balance.toFixed(2)}</td>
                   <td>
-                    <button className="account-btn" onClick={() => handleEdit(acc.id)}>Edit</button>
-                    <button className="account-btn delete" onClick={() => handleDelete(acc.id)}>Delete</button>
-                    <button className="account-btn" onClick={() => handleSetDefault(acc.id)}>
+                    {acc.type
+                      ? acc.type.charAt(0).toUpperCase() +
+                        acc.type.slice(1).toLowerCase()
+                      : ""}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    ${acc.initial_balance?.toFixed(2) || "0.00"}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    ${acc.current_balance?.toFixed(2) || "0.00"}
+                  </td>
+                  <td>
+                    <button
+                      className="account-btn"
+                      onClick={() => handleEdit(acc.id)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="account-btn delete"
+                      onClick={() => handleDelete(acc.id)}
+                    >
+                      Delete
+                    </button>
+                    <button
+                      className="account-btn"
+                      onClick={() => handleSetDefault(acc.id)}
+                    >
                       {defaultAccount && defaultAccount.id === acc.id
                         ? "Default"
                         : "Set as Default"}

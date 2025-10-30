@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "./AddEditAccount.css"; // reuse the same CSS
+import "./AddEditAccount.css";
 
 const AddEditAccount = () => {
   const navigate = useNavigate();
@@ -8,6 +8,7 @@ const AddEditAccount = () => {
   const [accountName, setAccountName] = useState("");
   const [accountType, setAccountType] = useState("CHECKING");
   const [initialBalance, setInitialBalance] = useState(0);
+  const [loading, setLoading] = useState(false);
 
   const handleSave = async () => {
     if (!accountName.trim()) {
@@ -15,10 +16,21 @@ const AddEditAccount = () => {
       return;
     }
 
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("You are not logged in. Please log in again.");
+      navigate("/login");
+      return;
+    }
+
+    setLoading(true);
     try {
-      const response = await fetch("http://localhost:5000/api/accounts", {
+      const response = await fetch("http://127.0.0.1:5000/api/accounts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           name: accountName,
           type: accountType,
@@ -29,14 +41,16 @@ const AddEditAccount = () => {
       const data = await response.json();
 
       if (response.ok) {
-        alert("Account added successfully!");
+        alert("✅ Account added successfully!");
         navigate("/accounts");
       } else {
-        alert("Error: " + (data.error || "Something went wrong."));
+        alert("❌ Error: " + (data.error || "Something went wrong."));
       }
     } catch (err) {
+      console.error("Error adding account:", err);
       alert("Failed to add account. Please try again later.");
-      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -50,6 +64,7 @@ const AddEditAccount = () => {
           type="text"
           value={accountName}
           onChange={(e) => setAccountName(e.target.value)}
+          placeholder="Enter account name"
         />
       </div>
 
@@ -71,15 +86,24 @@ const AddEditAccount = () => {
           type="number"
           value={initialBalance}
           onChange={(e) => setInitialBalance(e.target.value)}
+          placeholder="0.00"
         />
       </div>
 
       <div className="form-actions">
-        <button className="cancel-btn" onClick={() => navigate("/accounts")}>
+        <button
+          className="cancel-btn"
+          onClick={() => navigate("/accounts")}
+          disabled={loading}
+        >
           Cancel
         </button>
-        <button className="save-btn" onClick={handleSave}>
-          Save
+        <button
+          className="save-btn"
+          onClick={handleSave}
+          disabled={loading}
+        >
+          {loading ? "Saving..." : "Save"}
         </button>
       </div>
     </div>

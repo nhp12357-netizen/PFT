@@ -1,18 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom"; 
+import { useNavigate } from "react-router-dom";
 import { fetchBudgets } from "../../services/budgetApi";
 import "./Budget.css";
 
 export default function BudgetPage() {
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
 
-  // Default to current month: "YYYY-MM"
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [budgets, setBudgets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch budgets whenever `month` changes
   useEffect(() => {
     loadBudgets();
   }, [month]);
@@ -20,13 +18,11 @@ export default function BudgetPage() {
   const loadBudgets = async () => {
     setLoading(true);
     setError(null);
-
     try {
-      // Pass full YYYY-MM string to backend
       const data = await fetchBudgets(month);
       setBudgets(data);
     } catch (err) {
-      console.error("Failed to load budgets:", err);
+      console.error("❌ Failed to load budgets:", err);
       setError("Failed to load budgets. Please try again.");
     } finally {
       setLoading(false);
@@ -39,23 +35,24 @@ export default function BudgetPage() {
     `$${Number(num).toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
 
   if (loading) return <p style={{ padding: "20px" }}>Loading budgets...</p>;
-  if (error) return <p style={{ color: "red", padding: "20px" }}>{error}</p>;
+  if (error)
+    return <p style={{ color: "red", padding: "20px" }}>{error}</p>;
 
   return (
     <div className="container">
       <div className="header">PERSONAL FINANCE TRACKER</div>
 
       <div className="nav">
-        <a href="/" className="nav-item">Dashboard</a>
+        <a href="/dashboard" className="nav-item">Dashboard</a>
         <a href="/transactions" className="nav-item">Transactions</a>
         <a href="/accounts" className="nav-item">Accounts</a>
         <a href="/budget" className="nav-item active">Budget</a>
         <a href="/reports" className="nav-item">Reports</a>
       </div>
 
-      {/* 🟢 Month Selector */}
+      {/* Month selector */}
       <div className="filter-bar">
-        <label>Select Month: </label>
+        <label>Select Month:</label>
         <input
           type="month"
           value={month}
@@ -86,14 +83,23 @@ export default function BudgetPage() {
             <tbody>
               {budgets.map((b) => {
                 const remaining = b.limit_amount - b.spent;
-                const pct = b.limit_amount > 0 ? Math.round((b.spent / b.limit_amount) * 100) : 0;
+                const pct =
+                  b.limit_amount > 0
+                    ? Math.round((b.spent / b.limit_amount) * 100)
+                    : 0;
 
                 return (
                   <tr key={b.category_id}>
                     <td>{b.category_name}</td>
                     <td>{formatCurrency(b.limit_amount)}</td>
                     <td>{formatCurrency(b.spent)}</td>
-                    <td className={remaining >= 0 ? "remaining-positive" : "remaining-negative"}>
+                    <td
+                      className={
+                        remaining >= 0
+                          ? "remaining-positive"
+                          : "remaining-negative"
+                      }
+                    >
                       {formatCurrency(remaining)}
                     </td>
                     <td>
@@ -110,8 +116,16 @@ export default function BudgetPage() {
                         ></div>
                       </div>
                       <div className="percentage">({pct}%)</div>
-                      {pct > 100 && <div className="warning-text warning-over">OVER BUDGET!</div>}
-                      {pct === 100 && <div className="warning-text warning-at-limit">AT LIMIT!</div>}
+                      {pct > 100 && (
+                        <div className="warning-text warning-over">
+                          OVER BUDGET!
+                        </div>
+                      )}
+                      {pct === 100 && (
+                        <div className="warning-text warning-at-limit">
+                          AT LIMIT!
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );

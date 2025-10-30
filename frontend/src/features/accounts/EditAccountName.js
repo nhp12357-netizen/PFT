@@ -7,16 +7,41 @@ const EditAccountName = () => {
   const { id } = useParams(); // account ID
 
   const [accountName, setAccountName] = useState("");
+  const [loading, setLoading] = useState(true);
 
   // Fetch existing account name
   useEffect(() => {
-    if (id) {
-      fetch(`http://127.0.0.1:5000/api/accounts/${id}`)
-        .then((res) => res.json())
-        .then((data) => setAccountName(data.name))
-        .catch((err) => console.error("Error fetching account:", err));
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("You are not logged in. Please log in again.");
+      navigate("/login");
+      return;
     }
-  }, [id]);
+
+    const fetchAccount = async () => {
+      try {
+        const res = await fetch(`http://127.0.0.1:5000/api/accounts/${id}`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || "Failed to fetch account");
+        setAccountName(data.name);
+      } catch (err) {
+        console.error("Error fetching account:", err);
+        alert("Unable to load account details.");
+        navigate("/accounts");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) fetchAccount();
+  }, [id, navigate]);
 
   const handleSave = async () => {
     if (!accountName.trim()) {
@@ -24,26 +49,41 @@ const EditAccountName = () => {
       return;
     }
 
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("You are not logged in. Please log in again.");
+      navigate("/login");
+      return;
+    }
+
+    setLoading(true);
     try {
       const response = await fetch(`http://127.0.0.1:5000/api/accounts/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ name: accountName }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        alert("Account name updated successfully!");
+        alert("✅ Account name updated successfully!");
         navigate("/accounts");
       } else {
-        alert("Error: " + (data.error || "Something went wrong."));
+        alert("❌ Error: " + (data.error || "Something went wrong."));
       }
     } catch (err) {
+      console.error("Error updating account:", err);
       alert("Failed to save account. Please try again later.");
-      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
+
+  if (loading) return <p style={{ padding: "20px" }}>Loading...</p>;
 
   return (
     <div className="add-account-container">
@@ -59,11 +99,19 @@ const EditAccountName = () => {
       </div>
 
       <div className="form-actions">
-        <button className="cancel-btn" onClick={() => navigate("/accounts")}>
+        <button
+          className="cancel-btn"
+          onClick={() => navigate("/accounts")}
+          disabled={loading}
+        >
           Cancel
         </button>
-        <button className="save-btn" onClick={handleSave}>
-          Save
+        <button
+          className="save-btn"
+          onClick={handleSave}
+          disabled={loading}
+        >
+          {loading ? "Saving..." : "Save"}
         </button>
       </div>
     </div>

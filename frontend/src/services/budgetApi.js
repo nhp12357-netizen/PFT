@@ -1,27 +1,69 @@
-const API = "http://127.0.0.1:5000/api/budgets";
+const BASE_URL = "http://127.0.0.1:5000/api/budgets";
 
-
+// === FETCH ALL BUDGETS FOR A MONTH ===
 export async function fetchBudgets(month) {
-  const res = await fetch(`${API}?month=${month}`);
-  if (!res.ok) throw new Error("Failed to fetch budgets");
-  return await res.json();  // should be an array of budgets with spent field
+  const token = localStorage.getItem("token");
+
+  try {
+    const res = await fetch(`${BASE_URL}?month=${month}`, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await res.json().catch(() => []);
+    if (!res.ok) throw new Error(data.error || "Failed to fetch budgets");
+
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.error("❌ Fetch budgets error:", err);
+    throw err;
+  }
 }
 
+// === SAVE / UPDATE BUDGETS ===
+export async function saveBudgets(budgets) {
+  const token = localStorage.getItem("token");
 
+  try {
+    const res = await fetch(`${BASE_URL}/save`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(budgets),
+    });
 
-export async function saveBudgets(data) {
-  const res = await fetch(`${API}/save`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error("Failed to save budgets");
-  return res.json();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Failed to save budgets");
+
+    return data;
+  } catch (err) {
+    console.error("❌ Save budgets error:", err);
+    throw err;
+  }
 }
 
+// === FETCH RECOMMENDED BUDGETS ===
 export async function fetchRecommendedBudgets(month) {
-  // Optional: implement backend recommendations route
-  const res = await fetch(`${API}/recommendations?month=${month}`);
-  if (!res.ok) throw new Error("Failed to fetch recommendations");
-  return res.json(); // { category_id: limit_amount }
+  const token = localStorage.getItem("token");
+
+  try {
+    const res = await fetch(`${BASE_URL}/recommendations?month=${month}`, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Failed to fetch recommendations");
+
+    return data; // { category_id: limit_amount }
+  } catch (err) {
+    console.error("❌ Fetch recommended budgets error:", err);
+    throw err;
+  }
 }

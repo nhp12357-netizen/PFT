@@ -12,23 +12,40 @@ const DeleteAccount = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("You are not logged in. Please log in again.");
+      navigate("/login");
+      return;
+    }
+
     const fetchData = async () => {
       try {
-        const res = await fetch(`http://127.0.0.1:5000/api/accounts/${id}`);
+        // === Fetch account details ===
+        const res = await fetch(`http://127.0.0.1:5000/api/accounts/${id}`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
         if (!res.ok) throw new Error("Account not found");
         const accData = await res.json();
         setAccount(accData);
 
+        // === Fetch linked transactions ===
         const txns = await getTransactionsByAccount(id);
         setTransactions(txns);
       } catch (err) {
-        setError(err.message);
+        console.error("Error fetching account:", err);
+        setError(err.message || "Failed to load account details.");
       } finally {
         setLoading(false);
       }
     };
+
     fetchData();
-  }, [id]);
+  }, [id, navigate]);
 
   const handleDelete = async () => {
     if (transactions.length > 0) {
@@ -39,19 +56,29 @@ const DeleteAccount = () => {
     const confirmDelete = window.confirm("Are you sure you want to delete?");
     if (!confirmDelete) return;
 
-    const response = await deleteAccount(id);
-
-    // If no error → navigate immediately
-    if (!response.error) {
-      navigate("/accounts", { replace: true }); // ✅ Auto refresh + no back button issue
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("You are not logged in. Please log in again.");
+      navigate("/login");
       return;
     }
 
-    alert(response.error);
+    try {
+      const response = await deleteAccount(id);
+      if (!response.error) {
+        alert("✅ Account deleted successfully!");
+        navigate("/accounts", { replace: true });
+      } else {
+        alert("❌ " + response.error);
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("Something went wrong while deleting the account.");
+    }
   };
 
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p style={{ color: "red" }}>{error}</p>;
+  if (loading) return <p style={{ padding: "20px" }}>Loading...</p>;
+  if (error) return <p style={{ color: "red", padding: "20px" }}>{error}</p>;
 
   return (
     <div style={{ padding: "20px" }}>
@@ -64,7 +91,7 @@ const DeleteAccount = () => {
       {transactions.length === 0 && (
         <button
           onClick={handleDelete}
-          style={{ background: "red", color: "white", padding: "10px 20px" }}
+          style={{ background: "red", color: "white", padding: "10px 20px", marginRight: "10px" }}
         >
           Confirm Delete
         </button>

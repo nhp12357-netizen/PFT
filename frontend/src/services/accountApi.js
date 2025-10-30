@@ -1,6 +1,6 @@
 const BASE_URL = "http://127.0.0.1:5000/api/accounts";
 
-// === FETCH ALL ACCOUNTS ===
+// === FETCH ALL ACCOUNTS (standard) ===
 export const fetchAccounts = async () => {
   const token = localStorage.getItem("token");
 
@@ -18,6 +18,28 @@ export const fetchAccounts = async () => {
     return Array.isArray(data) ? data : [];
   } catch (err) {
     console.error("❌ Fetch accounts error:", err);
+    return [];
+  }
+};
+
+// === FETCH ACCOUNTS WITH BALANCE (for Accounts.js) ===
+export const fetchAccountsWithBalance = async () => {
+  const token = localStorage.getItem("token");
+
+  try {
+    const res = await fetch("http://127.0.0.1:5000/api/accounts", {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await res.json().catch(() => []);
+    if (!res.ok) throw new Error(data.error || "Failed to fetch accounts-with-balance");
+
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.error("❌ Fetch accounts-with-balance error:", err);
     return [];
   }
 };
@@ -65,7 +87,7 @@ export const setDefaultAccount = async (accountId) => {
 export const getDefaultAccount = async () => {
   const token = localStorage.getItem("token");
 
-  const res = await fetch(`${BASE_URL}/default`, {
+  const res = await fetch("http://127.0.0.1:5000/api/accounts/default", {
     headers: {
       Authorization: `Bearer ${token}`,
     },

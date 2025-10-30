@@ -1,42 +1,74 @@
 import React, { useState, useEffect } from "react";
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import { fetchReport } from "../../services/reportApi";
+import "./Reports.css";
 
-const COLORS = ["#0088FE","#00C49F","#FFBB28","#FF8042","#AA336A","#8884D8"];
+const COLORS = [
+  "#0088FE",
+  "#00C49F",
+  "#FFBB28",
+  "#FF8042",
+  "#AA336A",
+  "#8884D8",
+];
 
 export default function Reports() {
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [reportData, setReportData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchReportData = async () => {
       setLoading(true);
+      setError("");
       try {
         const data = await fetchReport(month);
-        setReportData(data);
+        setReportData(data || []);
       } catch (err) {
-        console.error(err);
+        console.error("Failed to load report:", err);
+        setError("Failed to load report data. Please try again.");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchReportData();
   }, [month]);
 
   return (
-    <div> {/* single root div */}
+    <div>
       <div className="header">PERSONAL FINANCE TRACKER</div>
 
+      {/* Navigation bar */}
       <div className="nav">
-        <a href="/" className="nav-item">Dashboard</a>
-        <a href="/transactions" className="nav-item">Transactions</a>
-        <a href="/accounts" className="nav-item">Accounts</a>
-        <a href="/budget" className="nav-item">Budget</a>
-        <a href="/reports" className="nav-item active">Reports</a>
+        <a href="/dashboard" className="nav-item">
+          Dashboard
+        </a>
+        <a href="/transactions" className="nav-item">
+          Transactions
+        </a>
+        <a href="/accounts" className="nav-item">
+          Accounts
+        </a>
+        <a href="/budget" className="nav-item">
+          Budget
+        </a>
+        <a href="/reports" className="nav-item active">
+          Reports
+        </a>
       </div>
 
       <div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
         <h2>Monthly Spending Report</h2>
+
+        {/* Month selector */}
         <div style={{ marginBottom: "20px" }}>
           <label htmlFor="month">Select Month: </label>
           <input
@@ -49,9 +81,21 @@ export default function Reports() {
 
         {loading ? (
           <p>Loading...</p>
+        ) : error ? (
+          <p style={{ color: "red" }}>{error}</p>
+        ) : reportData.length === 0 ? (
+          <p>No report data found for {month}.</p>
         ) : (
           <>
-            <table border="1" cellPadding="8" style={{ borderCollapse: "collapse", width: "100%", marginBottom: "40px" }}>
+            <table
+              border="1"
+              cellPadding="8"
+              style={{
+                borderCollapse: "collapse",
+                width: "100%",
+                marginBottom: "40px",
+              }}
+            >
               <thead>
                 <tr>
                   <th>Category</th>
@@ -64,10 +108,19 @@ export default function Reports() {
                 {reportData.map((row) => (
                   <tr key={row.category_id}>
                     <td>{row.category_name}</td>
-                    <td>₹{row.total_spent.toFixed(2)}</td>
-                    <td>{row.budget ? `₹${row.budget.toFixed(2)}` : "-"}</td>
-                    <td style={{ color: row.difference < 0 ? "red" : "green" }}>
-                      {row.difference != null ? `₹${row.difference.toFixed(2)}` : "-"}
+                    <td>₹{row.total_spent?.toFixed(2)}</td>
+                    <td>
+                      {row.budget ? `₹${row.budget.toFixed(2)}` : "-"}
+                    </td>
+                    <td
+                      style={{
+                        color: row.difference < 0 ? "red" : "green",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {row.difference != null
+                        ? `₹${row.difference.toFixed(2)}`
+                        : "-"}
                     </td>
                   </tr>
                 ))}
@@ -88,7 +141,10 @@ export default function Reports() {
                   label
                 >
                   {reportData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                    />
                   ))}
                 </Pie>
                 <Tooltip formatter={(value) => `₹${value.toFixed(2)}`} />
