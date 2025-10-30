@@ -57,7 +57,7 @@ const Dashboard = () => {
       console.error("Dashboard error:", err);
       if (err.message.includes("Unauthorized") || err.message.includes("token")) {
         localStorage.removeItem("token");
-        window.location.href = "/login";
+        window.location.href = "/";
       } else {
         setError(err.message);
       }
@@ -77,16 +77,27 @@ const Dashboard = () => {
     ? accounts.reduce((sum, acc) => sum + (acc.current_balance ?? 0), 0)
     : 0;
 
+  const handleLogout = () => {
+  localStorage.removeItem("token");
+  window.location.href = "/";
+  };
+
   return (
     <div className="container">
       <div className="header">PERSONAL FINANCE TRACKER</div>
 
       <div className="nav">
-        <a href="/" className="nav-item active">Dashboard</a>
-        <a href="/transactions" className="nav-item">Transactions</a>
-        <a href="/accounts" className="nav-item">Accounts</a>
-        <a href="/budget" className="nav-item">Budget</a>
-        <a href="/reports" className="nav-item">Reports</a>
+        <div className="nav-left">
+          <a href="/dashboard" className="nav-item active">Dashboard</a>
+          <a href="/transactions" className="nav-item">Transactions</a>
+          <a href="/accounts" className="nav-item">Accounts</a>
+          <a href="/budget" className="nav-item">Budget</a>
+          <a href="/reports" className="nav-item">Reports</a>
+        </div>
+
+        <button className="logout-btn" onClick={handleLogout}>
+          Logout
+        </button>
       </div>
 
       {/* Month & Year Selector */}

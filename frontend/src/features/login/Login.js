@@ -23,8 +23,8 @@ export default function Login() {
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
+    <div className="login-container">
+      <div className="login-card">
         <h2>Login</h2>
         {error && <p className="error">{error}</p>}
         <form onSubmit={handleSubmit}>

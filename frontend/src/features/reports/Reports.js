@@ -42,27 +42,28 @@ export default function Reports() {
     fetchReportData();
   }, [month]);
 
+  const handleLogout = () => {
+  localStorage.removeItem("token");
+  window.location.href = "/";
+  };
+
   return (
     <div>
       <div className="header">PERSONAL FINANCE TRACKER</div>
 
       {/* Navigation bar */}
       <div className="nav">
-        <a href="/dashboard" className="nav-item">
-          Dashboard
-        </a>
-        <a href="/transactions" className="nav-item">
-          Transactions
-        </a>
-        <a href="/accounts" className="nav-item">
-          Accounts
-        </a>
-        <a href="/budget" className="nav-item">
-          Budget
-        </a>
-        <a href="/reports" className="nav-item active">
-          Reports
-        </a>
+        <div className="nav-left">
+          <a href="/dashboard" className="nav-item">Dashboard</a>
+          <a href="/transactions" className="nav-item">Transactions</a>
+          <a href="/accounts" className="nav-item">Accounts</a>
+          <a href="/budget" className="nav-item">Budget</a>
+          <a href="/reports" className="nav-item active">Reports</a>
+        </div>
+
+        <button className="logout-btn" onClick={handleLogout}>
+          Logout
+        </button>
       </div>
 
       <div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>

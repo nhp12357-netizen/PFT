@@ -101,17 +101,29 @@ const Accounts = () => {
     0
   );
 
+  const handleLogout = () => {
+  localStorage.removeItem("token");
+  window.location.href = "/";
+  };
+
   return (
     <div className="container">
       <div className="header">PERSONAL FINANCE TRACKER</div>
 
       <div className="nav">
-        <a href="/dashboard" className="nav-item">Dashboard</a>
-        <a href="/transactions" className="nav-item">Transactions</a>
-        <a href="/accounts" className="nav-item active">Accounts</a>
-        <a href="/budget" className="nav-item">Budget</a>
-        <a href="/reports" className="nav-item">Reports</a>
+        <div className="nav-left">
+          <a href="/dashboard" className="nav-item">Dashboard</a>
+          <a href="/transactions" className="nav-item ">Transactions</a>
+          <a href="/accounts" className="nav-item active">Accounts</a>
+          <a href="/budget" className="nav-item">Budget</a>
+          <a href="/reports" className="nav-item">Reports</a>
+        </div>
+
+        <button className="logout-btn" onClick={handleLogout}>
+          Logout
+        </button>
       </div>
+
 
       <div className="page-header">
         <div className="page-title">ACCOUNTS</div>
