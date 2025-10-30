@@ -1,5 +1,3 @@
-
-
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchCategories, addCategory, deleteCategory } from "../../services/categoriesApi";
@@ -34,7 +32,7 @@ function Categories() {
 
     try {
       const newCategory = await addCategory(name.trim(), type);
-      setCategories(prev => [...prev, newCategory]);
+      setCategories((prev) => [...prev, newCategory]);
       setName("");
     } catch (err) {
       alert("Failed to add category: " + err.message);
@@ -46,7 +44,7 @@ function Categories() {
 
     try {
       await deleteCategory(Number(id));
-      setCategories(prev => prev.filter(cat => cat.id !== id));
+      setCategories((prev) => prev.filter((cat) => cat.id !== Number(id)));
     } catch (err) {
       alert("Failed to delete category: " + err.message);
     }
@@ -68,7 +66,9 @@ function Categories() {
           <option value="EXPENSE">EXPENSE</option>
         </select>
         <button onClick={handleAddCategory}>Add</button>
-        <button onClick={() => navigate("/transactions")} style={{ marginLeft: "10px" }}>Back</button>
+        <button onClick={() => navigate("/transactions")} style={{ marginLeft: "10px" }}>
+          Back
+        </button>
       </div>
 
       {loading ? (
@@ -87,7 +87,7 @@ function Categories() {
             </tr>
           </thead>
           <tbody>
-            {categories.map(cat => (
+            {categories.map((cat) => (
               <tr key={cat.id}>
                 <td>{cat.name}</td>
                 <td>{cat.type}</td>

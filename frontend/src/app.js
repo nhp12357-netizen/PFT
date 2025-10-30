@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 import Login from "./features/login/Login";
+import Register from "./features/login/Register";
 
 import Dashboard from "./features/dashboard/Dashboard";
 
@@ -24,8 +25,11 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Dashboard */}
+        
         <Route path="/" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* Dashboard */}
         <Route path="/dashboard" element={<Dashboard />} />
 
         {/* Transactions */}

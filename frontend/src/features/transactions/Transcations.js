@@ -11,24 +11,29 @@ function Transactions() {
   const [categories, setCategories] = useState([]);
   const [selectedAccount, setSelectedAccount] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedYear, setSelectedYear] = useState(""); // ✅ New state for year filter
-  const [selectedMonth, setSelectedMonth] = useState(""); // YYYY-MM
+  const [selectedYear, setSelectedYear] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const token = localStorage.getItem("token");
 
   useEffect(() => {
     fetchAccounts();
     fetchCategories();
     fetchTransactions();
+    // eslint-disable-next-line
   }, [accountId, selectedAccount, selectedCategory, selectedMonth, selectedYear]);
 
   // === Fetch accounts ===
   const fetchAccounts = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:5000/api/accounts");
+      const res = await fetch("http://127.0.0.1:5000/api/accounts", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await res.json();
-      setAccounts(data);
+      setAccounts(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to fetch accounts:", err);
     }
@@ -37,9 +42,11 @@ function Transactions() {
   // === Fetch categories ===
   const fetchCategories = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:5000/api/categories");
+      const res = await fetch("http://127.0.0.1:5000/api/categories", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await res.json();
-      setCategories(data);
+      setCategories(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to fetch categories:", err);
     }
@@ -54,24 +61,16 @@ function Transactions() {
       let url = "http://127.0.0.1:5000/api/transactions";
       const params = new URLSearchParams();
 
-      // Filter by account
+      // Filters
       if (accountId && selectedAccount === "all") {
         params.append("accountId", accountId);
       } else if (selectedAccount !== "all") {
         params.append("accountId", selectedAccount);
       }
 
-      // Filter by category
-      if (selectedCategory !== "all") {
-        params.append("categoryId", selectedCategory);
-      }
+      if (selectedCategory !== "all") params.append("categoryId", selectedCategory);
+      if (search.trim()) params.append("description", search.trim());
 
-      // Filter by description
-      if (search.trim()) {
-        params.append("description", search.trim());
-      }
-
-      // ✅ Filter by year or month
       if (selectedMonth) {
         const [year, month] = selectedMonth.split("-");
         params.append("year", year);
@@ -81,16 +80,19 @@ function Transactions() {
       }
 
       url += `?${params.toString()}`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
       if (!res.ok) throw new Error("Failed to fetch transactions");
       const data = await res.json();
-      setTransactions(data);
+      setTransactions(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
       setError("Failed to fetch transactions");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   // === Delete transaction ===
@@ -100,8 +102,13 @@ function Transactions() {
     try {
       const res = await fetch(`http://127.0.0.1:5000/api/transactions/${id}`, {
         method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error("Failed to delete");
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to delete transaction");
+
+      alert("Transaction deleted successfully!");
       fetchTransactions();
     } catch (error) {
       console.error("Error deleting:", error);
@@ -142,7 +149,6 @@ function Transactions() {
 
       {/* === Filters === */}
       <div className={styles.filters}>
-        {/* Account Filter */}
         <select
           value={selectedAccount}
           onChange={(e) => setSelectedAccount(e.target.value)}
@@ -153,7 +159,6 @@ function Transactions() {
           ))}
         </select>
 
-        {/* Category Filter */}
         <select
           value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
@@ -164,7 +169,6 @@ function Transactions() {
           ))}
         </select>
 
-        {/* ✅ Year Filter */}
         <select
           value={selectedYear}
           onChange={(e) => setSelectedYear(e.target.value)}
@@ -176,14 +180,12 @@ function Transactions() {
           <option value="2022">2022</option>
         </select>
 
-        {/* Month Filter */}
         <input
           type="month"
           value={selectedMonth}
           onChange={(e) => setSelectedMonth(e.target.value)}
         />
 
-        {/* Search Filter */}
         <input
           type="text"
           placeholder="Search by Description..."
@@ -194,7 +196,6 @@ function Transactions() {
         <button onClick={fetchTransactions}>🔍 Search</button>
       </div>
 
-      {/* === Transactions Table === */}
       {loading ? (
         <p style={{ textAlign: "center" }}>Loading transactions...</p>
       ) : error ? (
@@ -226,8 +227,7 @@ function Transactions() {
                         : styles.expense
                     }
                   >
-                    {tx.transaction_type === "INCOME" ? "+" : "-"}$
-                    {tx.amount.toFixed(2)}
+                    {tx.transaction_type === "INCOME" ? "+" : "-"}${tx.amount.toFixed(2)}
                   </td>
                   <td>
                     <button

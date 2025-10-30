@@ -1,58 +1,100 @@
-const API_BASE = "http://127.0.0.1:5000/api/accounts";
+const BASE_URL = "http://127.0.0.1:5000/api/accounts";
 
+// === FETCH ALL ACCOUNTS ===
+export const fetchAccounts = async () => {
+  const token = localStorage.getItem("token");
 
-// === Fetch all accounts ===
-export async function fetchAccounts() {
   try {
-    const res = await fetch(`${API_BASE}/accounts`);
-    if (!res.ok) throw new Error(`Network response was not ok: ${res.status}`);
-    return await res.json();
+    const res = await fetch(BASE_URL, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await res.json().catch(() => []);
+    if (!res.ok) throw new Error(data.error || "Failed to fetch accounts");
+
+    return Array.isArray(data) ? data : [];
   } catch (err) {
-    console.error("Failed to fetch accounts:", err);
+    console.error("❌ Fetch accounts error:", err);
     return [];
   }
-}
+};
 
-// === Delete an account ===
+// === DELETE AN ACCOUNT ===
+export const deleteAccount = async (accountId) => {
+  const token = localStorage.getItem("token");
 
-export async function deleteAccount(accountId) {
   try {
-    const res = await fetch(`${API_BASE}/accounts/${accountId}`, { method: "DELETE" });
+    const res = await fetch(`${BASE_URL}/${accountId}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || "Failed to delete");
+    if (!res.ok) throw new Error(data.error || "Failed to delete account");
+
     return { success: true };
   } catch (err) {
+    console.error("❌ Delete account error:", err);
     return { success: false, error: err.message };
   }
-}
+};
 
+// === SET DEFAULT ACCOUNT ===
+export const setDefaultAccount = async (accountId) => {
+  const token = localStorage.getItem("token");
+
+  const res = await fetch(`${BASE_URL}/${accountId}/set_default`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Failed to set default account");
+  return data;
+};
+
+// === GET DEFAULT ACCOUNT ===
+export const getDefaultAccount = async () => {
+  const token = localStorage.getItem("token");
+
+  const res = await fetch(`${BASE_URL}/default`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Failed to get default account");
+  return data;
+};
+
+// === FETCH TRANSACTIONS BY ACCOUNT ===
 export async function getTransactionsByAccount(accountId) {
+  const token = localStorage.getItem("token");
+
   try {
-    const res = await fetch(`${API_BASE}/transactions?accountId=${accountId}`);
-    if (!res.ok) throw new Error(`Failed to fetch transactions: ${res.status}`);
+    const res = await fetch(`http://127.0.0.1:5000/api/transactions?accountId=${accountId}`, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error(`Failed to fetch transactions for account ${accountId}`);
+    }
+
     return await res.json();
   } catch (err) {
-    console.error("Error fetching transactions:", err);
+    console.error("Error fetching transactions by account:", err);
     return [];
   }
 }
-
-
-
-
-// ✅ Set an account as default
-export async function setDefaultAccount(accountId) {
-  const res = await fetch(`${API_BASE}/${accountId}/set_default`, {
-    method: "POST",
-  });
-  if (!res.ok) throw new Error("Failed to set default account");
-  return res.json();
-}
-
-// ✅ Get the default account
-export async function getDefaultAccount() {
-  const res = await fetch(`${API_BASE}/default`);
-  if (!res.ok) throw new Error("Failed to get default account");
-  return res.json();
-}
-
